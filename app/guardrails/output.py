@@ -12,6 +12,15 @@ class ExtractionError(ValueError):
     """The model output cannot be trusted as a notification."""
 
 
+class OutputFormatError(ExtractionError):
+    """The output is not a usable answer (off-protocol refusal, no or broken object).
+
+    This is the noise a second sample can fix, so the pipeline re-asks once.
+    Content that parses but disagrees with the request is not re-asked: a
+    deterministic model would repeat it.
+    """
+
+
 class ModelDeclined(ExtractionError):
     """The model followed the refusal protocol: a deliberate decision, not noise."""
 
@@ -51,10 +60,10 @@ def _scan_objects(text: str) -> Tuple[List[Tuple[int, int]], int, Optional[str],
                 start = index
             depth += 1
             if depth > 32:
-                raise ExtractionError("Model output is too deeply nested")
+                raise OutputFormatError("Model output is too deeply nested")
         elif char == "}":
             if not depth:
-                raise ExtractionError("Unmatched object delimiter")
+                raise OutputFormatError("Unmatched object delimiter")
             depth -= 1
             if depth == 0 and start is not None:
                 objects.append((start, index + 1))
@@ -66,7 +75,7 @@ def _object_span(text: str) -> Tuple[int, int]:
     """Require one complete object; reject additional truncated objects too."""
     objects, depth, quote, _ = _scan_objects(text)
     if depth or quote or len(objects) != 1:
-        raise ExtractionError("Expected exactly one complete object")
+        raise OutputFormatError("Expected exactly one complete object")
     return objects[0]
 
 
@@ -79,11 +88,11 @@ def _close_truncated_object(text: str) -> str:
     """
     objects, depth, quote, start = _scan_objects(text)
     if objects or depth != 1 or quote or start is None:
-        raise ExtractionError("Expected exactly one complete object")
+        raise OutputFormatError("Expected exactly one complete object")
     tail = text[start:].rstrip()
     tail = re.sub(r"\s*(?:\.{3}|\u2026)$", "", tail).rstrip().rstrip(",").rstrip()
     if not tail.endswith(("'", '"')):
-        raise ExtractionError("Truncated object cannot be closed safely")
+        raise OutputFormatError("Truncated object cannot be closed safely")
     return text[:start] + tail + "}"
 
 
@@ -91,7 +100,7 @@ def _unique_object(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise ExtractionError("Duplicate object keys")
+            raise OutputFormatError("Duplicate object keys")
         result[key] = value
     return result
 
@@ -106,10 +115,10 @@ def _repair_object(candidate: str) -> str:
         if token.type == tokenize.STRING:
             # Only simple string literals are supported, never expressions or f-strings.
             if not value.startswith(("'", '"')):
-                raise ExtractionError("Unsupported string literal")
+                raise OutputFormatError("Unsupported string literal")
             literal = ast.literal_eval(value)
             if not isinstance(literal, str):
-                raise ExtractionError("Unsupported string literal")
+                raise OutputFormatError("Unsupported string literal")
             value = json.dumps(literal)
         elif (token.type == tokenize.NAME and index > 0 and index + 1 < len(tokens)
               and tokens[index - 1].string in ("{", ",")
@@ -122,13 +131,13 @@ def _repair_object(candidate: str) -> str:
 def parse_output(content: str) -> Dict[str, Any]:
     """Accept JSON, Python-style string quotes, and simple bare keys only."""
     if not isinstance(content, str) or len(content) > 12000:
-        raise ExtractionError("Model output is absent or oversized")
+        raise OutputFormatError("Model output is absent or oversized")
     if "{" not in content:
         if content.strip().casefold() == "refused":
             raise ModelDeclined("Model refused the request")
         if REFUSAL_RE.search(content):
-            raise ExtractionError("Model refused the request")
-        raise ExtractionError("Model output contains no object")
+            raise OutputFormatError("Model refused the request")
+        raise OutputFormatError("Model output contains no object")
     try:
         start, end = _object_span(content)
     except ExtractionError:
@@ -137,7 +146,7 @@ def parse_output(content: str) -> Dict[str, Any]:
         content = _close_truncated_object(content)
         start, end = _object_span(content)
     if REFUSAL_RE.search(content[:start] + content[end:]):
-        raise ExtractionError("Model refused the request")
+        raise OutputFormatError("Model refused the request")
     candidate = content[start:end]
     try:
         parsed = json.loads(candidate, object_pairs_hook=_unique_object)
@@ -146,9 +155,9 @@ def parse_output(content: str) -> Dict[str, Any]:
             repaired = _repair_object(candidate)
             parsed = json.loads(repaired, object_pairs_hook=_unique_object)
         except (ValueError, SyntaxError, TypeError, tokenize.TokenError) as exc:
-            raise ExtractionError("Model output is not a repairable object") from exc
+            raise OutputFormatError("Model output is not a repairable object") from exc
     if not isinstance(parsed, dict):
-        raise ExtractionError("Model output is not an object")
+        raise OutputFormatError("Model output is not an object")
     return parsed
 
 
@@ -162,9 +171,9 @@ def normalize_fields(raw: Dict[str, Any]) -> Dict[str, str]:
         if canonical is None:
             continue
         if not isinstance(value, str):
-            raise ExtractionError("A notification field is not text")
+            raise OutputFormatError("A notification field is not text")
         clean = value.strip()
         if canonical in normalized and normalized[canonical] != clean:
-            raise ExtractionError("Conflicting field aliases")
+            raise OutputFormatError("Conflicting field aliases")
         normalized[canonical] = clean
     return normalized

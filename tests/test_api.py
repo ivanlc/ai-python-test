@@ -83,21 +83,28 @@ async def test_invalid_input_and_unknown_id():
         assert (await client.post("/v1/requests/missing/process")).status_code == 404
 
 
-async def test_refusal_and_invalid_recipient_do_not_notify():
-    for output in ("Refused: Content analysis flagged sensitive information.",
-                   '{"to":"other@example.com","message":"hola","type":"email"}',
-                   '{"to":"juan@example.com","message":"ho","type":"email"}',
-                   'Refused: cannot send. ' + OUTPUT,
-                   '{"to":"juan@example.com","message":"wrong","message":"hola","type":"email"}'):
-        provider = FakeProvider(output=output)
-        async with api_client(provider) as (client, _):
-            request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
-            await client.post(f"/v1/requests/{request_id}/process")
-            await wait_for_status(client, request_id, "failed")
-            assert provider.notify_calls == []
-            assert (await client.post(f"/v1/requests/{request_id}/process")).status_code == 200
-            # One bounded re-ask with a fixed reason, never the model's text.
-            assert provider.extract_calls == 2
+@pytest.mark.parametrize("output, re_asked", [
+    # Unusable output (format): sampling noise, re-asked once.
+    ("Refused: Content analysis flagged sensitive information.", True),
+    ('Refused: cannot send. ' + OUTPUT, True),
+    ('{"to":"juan@example.com","message":"wrong","message":"hola","type":"email"}', True),
+    # Parsed but contradicts the request (content): failed without a re-ask.
+    ('{"to":"other@example.com","message":"hola","type":"email"}', False),
+    ('{"to":"juan@example.com","message":"ho","type":"email"}', False),
+    # Protocol refusal: a decision, failed without a re-ask.
+    ("REFUSED", False),
+])
+async def test_rejected_output_is_never_sent_and_only_format_errors_are_re_asked(output, re_asked):
+    provider = FakeProvider(output=output)
+    async with api_client(provider) as (client, _):
+        request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+        await client.post(f"/v1/requests/{request_id}/process")
+        await wait_for_status(client, request_id, "failed")
+        assert provider.notify_calls == []
+        assert (await client.post(f"/v1/requests/{request_id}/process")).status_code == 200
+        assert provider.extract_calls == (2 if re_asked else 1)
+        if re_asked:
+            # The re-ask carries a fixed reason, never the model's text.
             assert provider.feedbacks[0] is None and provider.feedbacks[1]
             assert output not in provider.feedbacks[1] and "{" not in provider.feedbacks[1]
 

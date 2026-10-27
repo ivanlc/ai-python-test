@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from .config import Settings
 from .models import Notification, RequestStatus
-from .guardrails import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
+from .guardrails import ExtractionError, OutputFormatError, check_request, extract_notification
 from .providers import ProviderError
 
 
@@ -137,19 +137,19 @@ class RequestService:
     async def _extract(self, request_id: str, user_input: str) -> Notification:
         """Ask the model; re-ask a bounded number of times when its output fails validation.
 
-        Not retried: request-level rejections (no model output could pass them) and a
-        protocol refusal (`REFUSED`), which is a deliberate decision. Off-protocol
-        output, such as free-text refusals or malformed objects, is treated as noise.
-        The re-ask carries only the fixed validation reason, never model or user text.
+        Only unusable output (off-protocol refusal, no or irreparable object) is
+        re-asked: that is sampling noise. A protocol `REFUSED` is a decision, and
+        content that parses but disagrees with the request would be repeated by a
+        deterministic model, so both fail directly. Request-level rejections never
+        get here (pre-flight). The re-ask carries only the fixed validation reason,
+        never model or user text.
         """
         feedback: Optional[str] = None
         for attempt in range(self.settings.extraction_retries + 1):
             content = await self.provider.extract(user_input, feedback)
             try:
                 return extract_notification(content, user_input)
-            except (RequestRejected, ModelDeclined):
-                raise
-            except ExtractionError as exc:
+            except OutputFormatError as exc:
                 if attempt == self.settings.extraction_retries:
                     raise
                 feedback = str(exc)

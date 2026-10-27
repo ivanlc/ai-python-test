@@ -19,7 +19,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from app.models import Notification
-from app.guardrails import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
+from app.guardrails import (ExtractionError, ModelDeclined, OutputFormatError, RequestRejected, check_request,
+                            extract_notification)
 from app.ai.prompts import SYSTEM_PROMPT, retry_instructions
 
 
@@ -83,6 +84,7 @@ def score(case: Case, content: str, done_reason: str = "stop") -> Dict[str, Any]
     accepted = None
     guardrail_error = None
     declined = False
+    format_error = False
     try:
         # The service rejects these before calling the model (pre-flight).
         check_request(case.user_input)
@@ -95,6 +97,7 @@ def score(case: Case, content: str, done_reason: str = "stop") -> Dict[str, Any]
         except ExtractionError as exc:
             guardrail_error = str(exc)
             declined = isinstance(exc, ModelDeclined)
+            format_error = isinstance(exc, OutputFormatError)
     else:
         guardrail_error = f"Incomplete model completion: {done_reason}"
     pipeline_correct = (accepted is None if case.expected is None
@@ -113,6 +116,7 @@ def score(case: Case, content: str, done_reason: str = "stop") -> Dict[str, Any]
         "guardrail_error": guardrail_error,
         "request_rejected": request_rejected,
         "model_declined": declined,
+        "format_error": format_error,
     }
 
 
@@ -300,10 +304,10 @@ async def run(args) -> int:
                         first = result["score"]
                         if getattr(args, "reask", False):
                             result["reask_enabled"] = True
-                        # Mirror the service: one re-ask with the fixed reason, never
-                        # after a request-level rejection or an accepted output.
+                        # Mirror the service: one re-ask with the fixed reason, only for
+                        # unusable output on a request that passes the pre-flight.
                         if (getattr(args, "reask", False) and not first["pipeline_accepted"]
-                                and not first["request_rejected"] and not first["model_declined"]
+                                and not first["request_rejected"] and first["format_error"]
                                 and completion["done_reason"] == "stop"):
                             feedback = first["guardrail_error"]
                             retry = await complete(client, args, prompts[arm] + retry_instructions(feedback),
