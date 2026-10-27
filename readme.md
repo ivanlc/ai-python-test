@@ -63,7 +63,7 @@ This is a **single-process, in-memory** implementation. A restart loses IDs and 
 
 ## Verification
 
-`pytest -q` covers HTTP contracts, transitions, idempotency, simulator variants, unsafe outputs, invalid recipients, provider failures, concurrency, and overload. The original k6 scripts are untouched. Recorded results and environment notes are in [benchmark](docs/benchmark.md).
+`pytest -q` covers HTTP contracts and OpenAPI, transitions, concurrent idempotency, simulator variants, unsafe/ambiguous outputs, invalid recipients, provider failures and cooldowns, configuration, concurrency, and overload. The original k6 scripts are untouched. Recorded results and environment notes are in [benchmark](docs/benchmark.md).
 
 ## License
 

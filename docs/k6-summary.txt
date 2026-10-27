@@ -1,8 +1,8 @@
 █ TOTAL RESULTS
 
-    checks_total.......: 19243   463.825631/s
-    checks_succeeded...: 100.00% 19243 out of 19243
-    checks_failed......: 0.00%   0 out of 19243
+    checks_total.......: 19187   462.821149/s
+    checks_succeeded...: 100.00% 19187 out of 19187
+    checks_failed......: 0.00%   0 out of 19187
 
     ✓ create status is 201 or 200
     ✓ create response is valid json
@@ -13,15 +13,15 @@
     ✓ status is valid string
 
     HTTP
-    http_req_duration..............: avg=684.08µs min=118.91µs med=560.62µs max=9.28ms p(90)=1.22ms p(95)=1.52ms
-      { expected_response:true }...: avg=684.08µs min=118.91µs med=560.62µs max=9.28ms p(90)=1.22ms p(95)=1.52ms
-    http_req_failed................: 0.00%  0 out of 8247
-    http_reqs......................: 8247   198.782413/s
+    http_req_duration..............: avg=912.6µs min=117.62µs med=691.16µs max=12ms  p(90)=1.81ms p(95)=2.36ms
+      { expected_response:true }...: avg=912.6µs min=117.62µs med=691.16µs max=12ms  p(90)=1.81ms p(95)=2.36ms
+    http_req_failed................: 0.00%  0 out of 8223
+    http_reqs......................: 8223   198.351921/s
 
     EXECUTION
-    iteration_duration.............: avg=1.5s     min=1.5s     med=1.5s     max=1.51s  p(90)=1.5s   p(95)=1.5s
-    iterations.....................: 2749   66.260804/s
-    vus............................: 69     min=5         max=199
+    iteration_duration.............: avg=1.5s    min=1.5s     med=1.5s     max=1.52s p(90)=1.51s  p(95)=1.51s
+    iterations.....................: 2741   66.117307/s
+    vus............................: 67     min=5         max=199
     vus_max........................: 200    min=200       max=200
 
     NETWORK
