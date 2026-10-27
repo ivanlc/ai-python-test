@@ -1,23 +1,36 @@
 # Real-model evaluation
 
-This optional tool sends synthetic extraction requests to a local Ollama model and evaluates the returned text with the application's production guardrails. It never starts the notification service or calls `/v1/notify`.
+This optional tool sends synthetic extraction requests to a real model (local Ollama or the Anthropic API) and evaluates the returned text with the application's production guardrails. It never starts the notification service or calls `/v1/notify`.
 
 ## Run
 
-Install the repository's development requirements and use an available Ollama model:
+Install the development requirements, then choose a backend:
 
 ```sh
+# Local Ollama (model must already be pulled and served)
 python -m evaluation.run --model qwen3.5:4b-q4_K_M \
-  --include-baseline --output evaluation/results/my-run.json
+  --include-baseline --prompt previous=evaluation/previous-prompt.txt \
+  --output evaluation/results/my-run.json
+
+# Anthropic API: the key is read from an environment variable, never from the CLI
+export ANTHROPIC_API_KEY=...
+python -m evaluation.run --backend anthropic --model claude-haiku-5-5 \
+  --prompt previous=evaluation/previous-prompt.txt --repeats 3 \
+  --cases evaluation/holdout2.json --output evaluation/results/my-run.json
 ```
 
-The model must already be installed and served by Ollama. The tool does not download models. `--base-url` defaults to `http://127.0.0.1:11434`; `--cases` can select a different dataset. An existing result file is never overwritten.
+`--prompt NAME=PATH` adds a comparison arm (repeatable); `--include-baseline` adds the first prompt from commit `ad2c1e8`. The `current` arm is always imported from `app.provider`. `--repeats N` runs every case N times, useful for models whose temperature cannot be fixed. `--base-url` overrides the backend default. An existing result file is never overwritten, and the API key is not written to reports.
 
-The frozen dataset contains 24 valid notification intents and 16 requests that should be refused. It includes body integrity, English/Spanish phrasing, quotes, Unicode, invalid recipients, channel conflicts, unsupported channels, multiple requests, attempts to override instructions, and recipient-like data inside message bodies. The baseline is the previous system prompt from commit `ad2c1e8`; the current prompt is imported directly from `app.provider`.
+Datasets:
 
-`holdout.json` contains 20 separate cases. The first run was made after initial fixes; one additional finding informed the last fix. Original results and final re-scoring are both retained, so final regression scores are not presented as untouched holdout accuracy. Executed results are in [the real-model report](../docs/llm-evaluation.md).
+| File | Cases | Purpose |
+| --- | ---: | --- |
+| `cases.json` | 40 (24 valid, 16 refusals) | Main set: body integrity, quotes, Unicode, invalid recipients, channel conflicts, unsupported channels, multiple requests, injections, contacts inside bodies |
+| `holdout.json` | 20 (12/8) | Separate set; one finding informed a later fix |
+| `k6.json` | 10 (8/2) | The four prompts of the supplied k6 load test plus connector variants (`diciendo que`, `que`, `saying that`) |
+| `holdout2.json` | 20 (12/8) | Frozen before the current prompt was first run; untouched estimate for it |
 
-Each case is evaluated once per prompt with a fresh system/user conversation. Case ordering is shuffled with seed 42; prompt order alternates. Concurrency is one, temperature zero, generation is limited to 512 tokens, context is 4,096 tokens, and thinking/streaming are disabled. JSON mode and tools are deliberately absent: the prompt must produce its own valid output, and refusal remains plain text. These are evaluation-only Ollama parameters; the challenge provider's contract is unchanged.
+Each call uses a fresh system/user conversation. Case order is shuffled with seed 42 and arm order rotates. Concurrency is one and generation is limited to 512 tokens. Thinking is disabled on both backends. JSON mode, tools and prefill are deliberately absent: the prompt must produce valid output on its own, and a refusal remains plain text. Ollama additionally uses temperature 0 and a 4,096-token context; the Anthropic model used does not accept a temperature. Results are in [the real-model report](../docs/llm-evaluation.md).
 
 ## Scoring
 
@@ -27,7 +40,7 @@ Each case is evaluated once per prompt with a fresh system/user conversation. Ca
 - `valid_intent_rejected`: a valid request was rejected, including failures caused by model output. `guardrail_false_rejection` is the subset where the model supplied an already correct response.
 - `model_error_blocked`: an incorrect model response was rejected by guardrails.
 
-The raw scorer is separate from production parsing and checks the full expected payload. A transport failure aborts the run and preserves an explicitly incomplete report. Successful process exit means inference completed, not that every answer was correct. Each report retains source/prompt/dataset hashes, model settings, per-case output, latency, token counts, and decisions. Checkpoints are written after every call.
+The raw scorer is separate from production parsing and checks the full expected payload. An empty model answer is scored as a model failure. The Anthropic backend retries `429`/`5xx`/`529` up to three times; any remaining transport failure aborts the run and preserves an explicitly incomplete report. Successful process exit means inference completed, not that every answer was correct. Each report retains source/prompt/dataset hashes, model settings, per-case output, latency, token counts, and decisions. Checkpoints are written after every call.
 
 ## Re-score existing outputs
 
@@ -40,6 +53,6 @@ python -m evaluation.run --rescore evaluation/results/original.json \
 
 The report records generation and rescoring revisions separately. Changing a prompt requires fresh inference; rescoring cannot measure a different prompt.
 
-This curated sample and a small quantized local model do not establish general accuracy, robustness across models, or statistical confidence. Inspect failures and report model behavior separately from guardrail behavior. The deterministic evaluator itself is covered by ordinary tests, which do not require Ollama.
+These curated samples and two models do not establish general accuracy, robustness across models, or statistical confidence. Inspect failures and report model behavior separately from guardrail behavior. The deterministic evaluator itself is covered by ordinary tests, which need neither Ollama nor an API key.
 
-References: [Ollama chat API](https://docs.ollama.com/api/chat), [runtime parameters](https://docs.ollama.com/modelfile).
+References: [Ollama chat API](https://docs.ollama.com/api/chat), [runtime parameters](https://docs.ollama.com/modelfile), [Anthropic Messages API](https://docs.anthropic.com/en/api/messages).

@@ -26,7 +26,7 @@ docker compose run --rm load-test
 
 The API listens on `localhost:5000`, the provider on `localhost:3001`, and Grafana on `localhost:3000`. The original Compose setup shares the provider's network namespace with the app, so its default provider URL is `http://localhost:3001` inside the containers. The bundled mock API key is the public test value `test-dev-2026`; set `PROVIDER_API_KEY` for another environment. No production credential is stored here.
 
-For local Python development (Python 3.9+):
+For local Python development (Python 3.9–3.12; the pinned pydantic 2.6 has no wheels for 3.13):
 
 ```sh
 python -m venv .venv
@@ -63,11 +63,11 @@ This is a **single-process, in-memory** implementation. A restart loses IDs and 
 
 ## Verification
 
-`pytest -q` covers HTTP contracts and OpenAPI, transitions, concurrent idempotency, simulator variants, unsafe/ambiguous outputs, invalid recipients, provider failures and cooldowns, configuration, concurrency, and overload. The original k6 scripts are untouched. Recorded results and environment notes are in [benchmark](docs/benchmark.md).
+`pytest -q` (161 tests) covers HTTP contracts and OpenAPI, transitions, concurrent idempotency, worker survival, simulator variants including the mock's truncated and command-text outputs, lossless repairs, unsafe/ambiguous outputs, invalid recipients, provider failures and cooldowns, configuration, concurrency, overload, and the evaluator. The original k6 scripts are untouched. Recorded results, including the delivery outcome of every k6 request after the queue drained, are in [benchmark](docs/benchmark.md).
 
 The [quality criteria review](docs/quality-review.md) explains the prompt design, failure isolation, pipeline trade-offs, and the limits of evaluating prompt quality with a simulator that ignores system instructions.
 
-An optional [real-model evaluator](evaluation/README.md) compares prompts against local Ollama without sending notifications. The [executed Qwen evaluation](docs/llm-evaluation.md) includes 100 scored real-model calls, original failures, production guardrail fixes, and unchanged-output re-scoring.
+An optional [real-model evaluator](evaluation/README.md) compares prompts against local Ollama or the Anthropic API without sending notifications. The [executed evaluation](docs/llm-evaluation.md) covers 100 Qwen 3.5 4B calls and 960 Claude Haiku 5.5 calls, including the k6 prompts and a set frozen before the current prompt was tested, with original failures, guardrail fixes and unchanged-output re-scoring.
 
 ## License
 
