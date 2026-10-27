@@ -390,7 +390,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -421,7 +422,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -452,7 +454,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -479,7 +482,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -506,7 +510,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -526,7 +531,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -553,7 +559,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -580,7 +587,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -611,7 +619,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -642,7 +651,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -669,7 +679,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -700,7 +711,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -727,7 +739,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -758,7 +771,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -789,7 +803,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -820,7 +835,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -847,7 +863,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -874,7 +891,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -901,7 +919,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -921,7 +940,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -952,7 +972,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -983,7 +1004,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1014,7 +1036,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1041,7 +1064,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1068,7 +1092,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -1088,7 +1113,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -1115,7 +1141,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1146,7 +1173,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1177,7 +1205,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1204,7 +1233,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -1224,7 +1254,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -1251,7 +1282,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1282,7 +1314,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1313,7 +1346,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1340,7 +1374,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -1360,7 +1395,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -1387,7 +1423,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1418,7 +1455,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1449,7 +1487,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1480,7 +1519,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1511,7 +1551,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1542,7 +1583,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1573,7 +1615,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1604,7 +1647,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1635,7 +1679,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1666,7 +1711,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1697,7 +1743,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1728,7 +1775,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1755,7 +1803,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1782,7 +1831,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -1802,7 +1852,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -1829,7 +1880,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1856,7 +1908,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1887,7 +1940,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1918,7 +1972,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1945,7 +2000,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -1976,7 +2032,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2003,7 +2060,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2034,7 +2092,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2065,7 +2124,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2096,7 +2156,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2123,7 +2184,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2150,7 +2212,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2177,7 +2240,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -2197,7 +2261,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -2228,7 +2293,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2259,7 +2325,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2290,7 +2357,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2317,7 +2385,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2344,7 +2413,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -2364,7 +2434,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -2391,7 +2462,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2422,7 +2494,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2453,7 +2526,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2480,7 +2554,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -2500,7 +2575,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -2527,7 +2603,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2558,7 +2635,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2589,7 +2667,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2616,7 +2695,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -2636,7 +2716,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -2663,7 +2744,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2694,7 +2776,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2725,7 +2808,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2756,7 +2840,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2787,7 +2872,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2818,7 +2904,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2849,7 +2936,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2880,7 +2968,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2911,7 +3000,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2942,7 +3032,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -2973,7 +3064,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3004,7 +3096,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3031,7 +3124,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3058,7 +3152,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -3078,7 +3173,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -3105,7 +3201,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3132,7 +3229,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3163,7 +3261,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3194,7 +3293,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3221,7 +3321,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3252,7 +3353,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3279,7 +3381,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3310,7 +3413,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3341,7 +3445,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3372,7 +3477,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3399,7 +3505,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3426,7 +3533,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3453,7 +3561,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -3473,7 +3582,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -3504,7 +3614,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3535,7 +3646,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3566,7 +3678,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3593,7 +3706,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3620,7 +3734,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -3640,7 +3755,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -3667,7 +3783,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3698,7 +3815,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3729,7 +3847,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3756,7 +3875,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -3776,7 +3896,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -3803,7 +3924,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3834,7 +3956,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3865,7 +3988,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3892,7 +4016,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true,
       "reask": {
@@ -3912,7 +4037,8 @@
           "model_error_blocked": false,
           "guardrail_error": "Model refused the request",
           "request_rejected": false,
-          "model_declined": true
+          "model_declined": true,
+          "format_error": false
         }
       }
     },
@@ -3939,7 +4065,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -3970,7 +4097,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4001,7 +4129,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4032,7 +4161,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4063,7 +4193,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4094,7 +4225,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4125,7 +4257,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4156,7 +4289,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     },
@@ -4187,7 +4321,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       },
       "reask_enabled": true
     }
@@ -4213,9 +4348,9 @@
   "finished_at": "2026-10-27T17:59:08.225996+00:00",
   "rescoring": {
     "source_report": "evaluation/results/claude-haiku-5-5-reask-main.json",
-    "source_revision": "0077792a4733725d2b31724e6a9946a5a3313300",
-    "guardrail_sha256": "10b872a08da85f639b07282ea00fa09e3310699e3cf970358623ce1f195c5fd1",
-    "rescored_at": "2026-10-27T18:08:18.453982+00:00"
+    "source_revision": "0c391baa8515f181d91c191efc0821f837587e14",
+    "guardrail_sha256": "b8d90f2c0b7597f4a5629d9bd29f4ae141fec3448b7cfffdabe2abc8668acf83",
+    "rescored_at": "2026-10-27T18:34:48.442594+00:00"
   },
-  "reask_policy_note": "Generated before ModelDeclined: protocol refusals (REFUSED) were also re-asked. The service no longer re-asks them; every such re-ask here returned REFUSED again."
+  "reask_policy_note": "Generated while protocol refusals (REFUSED) were also re-asked; every such re-ask returned REFUSED again. The service now re-asks only unusable output (format errors), none of which occurred in this run."
 }

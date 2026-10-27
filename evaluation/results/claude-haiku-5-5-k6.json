@@ -149,7 +149,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -179,7 +180,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -209,7 +211,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -239,7 +242,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -269,7 +273,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -299,7 +304,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -325,7 +331,8 @@
         "model_error_blocked": true,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -351,7 +358,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -381,7 +389,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -411,7 +420,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -441,7 +451,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -471,7 +482,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -497,7 +509,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -523,7 +536,8 @@
         "model_error_blocked": true,
         "guardrail_error": "Model output contains no object",
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -553,7 +567,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -583,7 +598,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -613,7 +629,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -643,7 +660,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -673,7 +691,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -703,7 +722,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -733,7 +753,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -763,7 +784,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -793,7 +815,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -823,7 +846,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -853,7 +877,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -883,7 +908,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -909,7 +935,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -935,7 +962,8 @@
         "model_error_blocked": true,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -965,7 +993,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -995,7 +1024,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1025,7 +1055,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1055,7 +1086,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1081,7 +1113,8 @@
         "model_error_blocked": true,
         "guardrail_error": "Model output contains no object",
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -1107,7 +1140,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -1137,7 +1171,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1167,7 +1202,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1197,7 +1233,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1227,7 +1264,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1257,7 +1295,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1287,7 +1326,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1317,7 +1357,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1347,7 +1388,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1377,7 +1419,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1407,7 +1450,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1437,7 +1481,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1467,7 +1512,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1493,7 +1539,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -1519,7 +1566,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": true,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -1549,7 +1597,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1579,7 +1628,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1609,7 +1659,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1635,7 +1686,8 @@
         "model_error_blocked": true,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -1661,7 +1713,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": true
+        "model_declined": true,
+        "format_error": false
       }
     },
     {
@@ -1687,7 +1740,8 @@
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": true
       }
     },
     {
@@ -1717,7 +1771,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1747,7 +1802,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1777,7 +1833,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1807,7 +1864,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1837,7 +1895,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     },
     {
@@ -1867,7 +1926,8 @@
         "model_error_blocked": false,
         "guardrail_error": null,
         "request_rejected": false,
-        "model_declined": false
+        "model_declined": false,
+        "format_error": false
       }
     }
   ],
@@ -1903,8 +1963,8 @@
   "arm_relabel_note": "Arm 'previous' was named 'current' at generation time; prompt text and SHA-256 are unchanged.",
   "rescoring": {
     "source_report": "evaluation/results/claude-haiku-5-5-k6.json",
-    "source_revision": "0077792a4733725d2b31724e6a9946a5a3313300",
-    "guardrail_sha256": "10b872a08da85f639b07282ea00fa09e3310699e3cf970358623ce1f195c5fd1",
-    "rescored_at": "2026-10-27T18:08:17.767248+00:00"
+    "source_revision": "0c391baa8515f181d91c191efc0821f837587e14",
+    "guardrail_sha256": "b8d90f2c0b7597f4a5629d9bd29f4ae141fec3448b7cfffdabe2abc8668acf83",
+    "rescored_at": "2026-10-27T18:34:47.832606+00:00"
   }
 }
