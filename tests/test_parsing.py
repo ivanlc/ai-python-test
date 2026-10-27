@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from app.parsing import ExtractionError, extract_notification
@@ -67,3 +69,71 @@ def test_ambiguous_recipients_fail():
     with pytest.raises(ExtractionError):
         extract_notification('{"to":"juan@example.com","message":"su paquete","type":"email"}',
                              "Enviar email a juan@example.com y ana@example.com: su paquete")
+
+
+@pytest.mark.parametrize("content", [
+    '{"to":"juan@example.com","message":"wrong","message":"hola","type":"email"}',
+    "{'to':'juan@example.com','message':'wrong','message':'hola','type':'email'}",
+    '{to:"juan@example.com",message:"wrong",message:"hola",type:"email"}',
+    'Refused: cannot send. {"to":"juan@example.com","message":"hola","type":"email"}',
+    'Lo siento, no puedo enviarlo. {"to":"juan@example.com","message":"hola","type":"email"}',
+    '{"to":"juan@example.com","message":"hola","type":"email"} {"to":',
+    '{"to":"juan@example.com","message":"ho" "la","type":"email"}',
+    '{"to":"","message":"hola","type":"email"}',
+    '{"to":"juan@example.com","message":"hola","type":""}',
+])
+def test_ambiguous_model_output_fails_closed(content):
+    with pytest.raises(ExtractionError):
+        extract_notification(content, "Enviar email a juan@example.com: hola")
+
+
+@pytest.mark.parametrize("source_recipient, model_recipient", [
+    ("juan..perez@example.com", "juan..perez@example.com"),
+    ("juan@-example.com", "juan@-example.com"),
+    ("juan@example..com", "juan@example..com"),
+    ("foo@bar@example.com", "bar@example.com"),
+    ("juan@example.com y foo@", "juan@example.com"),
+    ("abc600111222", "600111222"),
+])
+def test_invalid_contact_cannot_be_recovered_as_a_valid_substring(source_recipient, model_recipient):
+    channel = "email" if "@" in model_recipient else "sms"
+    content = json.dumps({"to": model_recipient, "message": "hola", "type": channel})
+    with pytest.raises(ExtractionError):
+        extract_notification(content, f"Enviar a {source_recipient}: hola")
+
+
+@pytest.mark.parametrize("recipient", ["juan@example.com", "user123456789@example.com"])
+def test_valid_email_with_sentence_punctuation(recipient):
+    content = json.dumps({"to": recipient, "message": "hola", "type": "email"})
+    assert extract_notification(content, f"Enviar email: hola. Destino {recipient}.").to == recipient
+
+
+def test_repair_does_not_rewrite_bare_key_patterns_inside_message():
+    content = '''{to:'juan@example.com', message:'usa {name: value}', type:'email'}'''
+    notification = extract_notification(content, "Enviar email a juan@example.com: usa {name: value}")
+    assert notification.message == "usa {name: value}"
+
+
+def test_refusal_words_inside_the_intended_message_are_allowed():
+    content = json.dumps({"to": "juan@example.com", "message": "Lo siento", "type": "email"})
+    assert extract_notification(content, "Enviar email a juan@example.com: Lo siento").message == "Lo siento"
+
+
+@pytest.mark.parametrize("fields", [
+    {"to": "juan@example.com", "message": "hola"},
+    {"to": "juan@example.com", "message": "hola", "type": "email"},
+])
+def test_explicit_channel_conflict_is_rejected(fields):
+    with pytest.raises(ExtractionError):
+        extract_notification(json.dumps(fields), "Enviar SMS a juan@example.com: hola")
+
+
+def test_channel_words_in_message_do_not_override_request():
+    content = json.dumps({"to": "juan@example.com", "message": "tu SMS llegó", "type": "email"})
+    assert extract_notification(content, "Enviar email a juan@example.com: tu SMS llegó").type == "email"
+
+
+def test_excessively_nested_output_is_rejected():
+    with pytest.raises(ExtractionError):
+        extract_notification('{"metadata":' * 40 + '{}' + '}' * 40,
+                             "Enviar email a juan@example.com: hola")
