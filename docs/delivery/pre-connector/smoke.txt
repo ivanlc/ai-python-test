@@ -1,0 +1,11 @@
+{
+  "finished": 20,
+  "total": 20,
+  "sent_per_prompt": {
+    "Manda un correo a marta@app.com: Tienes un nuevo mensaje.": 5,
+    "Recordatorio por teléfono al 699888777: cita a las 10:00": 5,
+    "Enviar email a juan@example.com diciendo que su paquete está en camino.": 0,
+    "Avisar por SMS al 600-111-222 que la reserva ha sido confirmada.": 0
+  }
+}
+OK

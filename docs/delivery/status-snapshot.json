@@ -1,0 +1,66 @@
+{
+  "status": "complete",
+  "base_revision": "ea145c832fd98aaf155c54d5880ec2f3c1f85b78",
+  "measured_worktree": "base revision plus the application files identified below",
+  "application_file_sha256": {
+    "app/Dockerfile": "700587a7cd32448df0332441683aecd1bebe85ff4867f247ac87412130951401",
+    "app/__init__.py": "5dc517c5ae4f1ae2da26254d06114d2c6426cfed7835708ea39f48ce9e4745ee",
+    "app/ai/__init__.py": "bcc3b102dccb5a1badb0ef77ad8c660bfb269674ff5ff07673c09c227c484e57",
+    "app/ai/prompts/__init__.py": "de03b491d24a7453bebca8c0a05fe06a1c500bba5b493471cd6154a623f15535",
+    "app/ai/prompts/extraction_system.txt": "1ddd54b7fef8807f57647d430fd7251f740e68e3ecffbd80d80f675804f92ec5",
+    "app/ai/prompts/retry.txt": "5a7823cf5c8b179070400078b9b853ea92c96688f6bdb122d4e632d363230b38",
+    "app/config.py": "d99d07d53eb3563d33d937dff96afbb25d726ee72f075b3afe8a0bf4cb94e051",
+    "app/guardrails/__init__.py": "c8bdd55a659fd518ea1ce1250954aab235755db99e86711174321e3f1c0d0582",
+    "app/guardrails/grounding.py": "5352b2430260eab2e1719aae06a75b5a1c3be1e3286a92d555487fae5bfb0e97",
+    "app/guardrails/output.py": "1bb7325ab7deac3e6c2ca280e5c219fa0e16eb6f72796a73c19ed7f59aa4e811",
+    "app/main.py": "23a1c9f3e24031627dc7dbc7a4922d1aa22d1b8625643cf692e981ad4371b0df",
+    "app/models.py": "d42b1def8f0a2f02e8e46d5e48f468eff62548539736c9abd0167ada1118f4e8",
+    "app/pipeline.py": "781234777c0608e592f17cdfa9e0b792d0b498261ec0ac0d256cf4beb7d7b006",
+    "app/providers/__init__.py": "3f8287595ba2f9284972873cbbcd55ee967ef54bd2ad8a625d0b216787cfa94c",
+    "app/providers/http.py": "d391aee84c009fbdf0565ad152d3b57ffd35865ac851c2e058a21e6b7cdf0198",
+    "app/providers/resilience.py": "13b30ae0e834a5bca664d86c2298532934b0c9af4b7d765b8a7519b5a7fc05da",
+    "app/requirements.txt": "847f2a7090d27d875ffa76658fde2a095176b73dc73f78c9b1c868015d06a841"
+  },
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.12.14",
+    "docker": "Docker version 29.5.2, build 79eb04c",
+    "compose": "Docker Compose version v5.1.4",
+    "concurrent_work": "local Ollama evaluation"
+  },
+  "started_at": "2026-10-27T18:50:02Z",
+  "drained_at": "2026-10-27T18:55:42.666581+00:00",
+  "k6_iterations": 2749,
+  "api_terminal_statuses_verified": 2749,
+  "terminal_outcomes": {
+    "sent": 1371,
+    "failed": 1378
+  },
+  "sent_by_channel": {
+    "sms": 677,
+    "email": 694
+  },
+  "failure_reasons": {
+    "Message does not match the complete explicit body": 1345,
+    "Model refused the request": 33
+  },
+  "re_asks_after_unusable_output": 262,
+  "provider_notify_http_200": 1371,
+  "provider_notify_http_429": 24,
+  "unexpected_exceptions": 0,
+  "circuit_breaker_openings": 0,
+  "deadline_expirations": 0,
+  "terminal_process_rechecks": 20,
+  "grafana_scorecard": {
+    "availability_percent": 100,
+    "process_mean_latency_ms": 0.5758565423790473,
+    "inference_attempts": 3011,
+    "process_requests": 2749,
+    "inference_attempts_per_request": 1.0953073845034558
+  },
+  "log_sha256": {
+    "app": "92e833c1131bf0fb6f3a0e8628c653f5241ab76d4b0ba1fefe32526ffb4d1cde",
+    "provider": "8256fc7d589b15fae67e5b1740968f33359bc60e4dab03f9e3468449cbe866a6"
+  }
+}
