@@ -218,3 +218,29 @@ async def test_429_without_retry_after_waits_for_provider_window():
         await HTTPProvider(client, settings).notify(
             Notification(to="juan@example.com", message="hola", type="email"))
     assert attempts[1] - attempts[0] >= settings.notify_window_seconds
+
+
+@pytest.mark.parametrize("operation, response", [
+    ("extract", httpx.Response(200, content=b"not JSON")),
+    ("extract", httpx.Response(200, json={"choices": [{"message": {"content": None}}]})),
+    ("notify", httpx.Response(200, content=b"not JSON")),
+    ("notify", httpx.Response(200, json={"status": "delivered"})),
+    ("notify", httpx.Response(200, json={"status": "queued", "provider_id": "p-1"})),
+])
+async def test_malformed_success_response_is_not_retried(operation, response):
+    attempts = []
+
+    def handler(request):
+        attempts.append(request)
+        return response
+
+    settings = Settings()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler),
+                                base_url=settings.provider_base_url) as client:
+        provider = HTTPProvider(client, settings)
+        with pytest.raises(ProviderError):
+            if operation == "extract":
+                await provider.extract("test")
+            else:
+                await provider.notify(Notification(to="juan@example.com", message="hola", type="email"))
+    assert len(attempts) == 1

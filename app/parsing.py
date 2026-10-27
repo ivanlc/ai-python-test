@@ -151,6 +151,7 @@ def _email_key(address: str) -> Optional[str]:
 def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
     """Ground the recipient in the request and require a coherent channel."""
     emails: Dict[str, str] = {}
+    recipient_ends: List[int] = []
     masked = list(user_input)
     for match in CONTACT_TOKEN_RE.finditer(user_input):
         if "@" not in match.group(0):
@@ -160,11 +161,13 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         if key is None:
             raise ExtractionError("The request contains an invalid email address")
         emails[key] = address
+        recipient_ends.append(match.end())
         masked[match.start():match.end()] = " " * (match.end() - match.start())
     # Digits in an email local part are not a second phone recipient.
     without_emails = "".join(masked)
-    phones = {match.group(0).replace("-", ""): match.group(0)
-              for match in PHONE_SOURCE_RE.finditer(without_emails)}
+    phone_matches = list(PHONE_SOURCE_RE.finditer(without_emails))
+    phones = {match.group(0).replace("-", ""): match.group(0) for match in phone_matches}
+    recipient_ends.extend(match.end() for match in phone_matches)
     if len(emails) + len(phones) != 1:
         raise ExtractionError("A unique recipient is not present in the request")
 
@@ -182,6 +185,11 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         raise ExtractionError("Message is absent or oversized")
     if message.casefold() not in user_input.casefold():
         raise ExtractionError("Message is not grounded in the request")
+    after_recipient = user_input[min(recipient_ends):].lstrip()
+    if after_recipient.startswith(":"):
+        explicit_body = after_recipient[1:].strip()
+        if message.casefold() != explicit_body.casefold():
+            raise ExtractionError("Message does not match the complete explicit body")
     expected_channel = "email" if email else "sms"
     channel = fields.get("type", expected_channel).casefold()
     instruction = without_emails.split(":", 1)[0]

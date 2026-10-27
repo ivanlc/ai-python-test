@@ -84,6 +84,7 @@ async def test_invalid_input_and_unknown_id():
 async def test_refusal_and_invalid_recipient_do_not_notify():
     for output in ("Refused: Content analysis flagged sensitive information.",
                    '{"to":"other@example.com","message":"hola","type":"email"}',
+                   '{"to":"juan@example.com","message":"ho","type":"email"}',
                    'Refused: cannot send. ' + OUTPUT,
                    '{"to":"juan@example.com","message":"wrong","message":"hola","type":"email"}'):
         provider = FakeProvider(output=output)
@@ -195,3 +196,49 @@ async def test_api_pipeline_with_http_adapter():
             await client.post(f"/v1/requests/{request_id}/process")
             await wait_for_status(client, request_id, "sent")
     assert paths == ["/v1/ai/extract", "/v1/notify"]
+
+
+@pytest.mark.parametrize("failure_stage", ["extract", "notify"])
+async def test_unexpected_job_error_does_not_kill_worker(failure_stage, caplog):
+    class FaultOnceProvider(FakeProvider):
+        notify_attempts = 0
+
+        async def extract(self, user_input):
+            if failure_stage == "extract" and self.extract_calls == 0:
+                self.extract_calls += 1
+                raise RuntimeError("unexpected extraction failure")
+            return await super().extract(user_input)
+
+        async def notify(self, notification):
+            self.notify_attempts += 1
+            if failure_stage == "notify" and self.notify_attempts == 1:
+                raise RuntimeError("unexpected notification failure")
+            await super().notify(notification)
+
+    provider = FaultOnceProvider()
+    async with api_client(provider, worker_count=1) as (client, _):
+        ids = [(await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+               for _ in range(2)]
+        for request_id in ids:
+            await client.post(f"/v1/requests/{request_id}/process")
+        await wait_for_status(client, ids[0], "failed")
+        await wait_for_status(client, ids[1], "sent")
+        await client.post(f"/v1/requests/{ids[0]}/process")
+        assert provider.extract_calls == 2
+        assert provider.notify_attempts == (1 if failure_stage == "extract" else 2)
+        assert len(provider.notify_calls) == 1
+        assert any(record.exc_info for record in caplog.records
+                   if "Unexpected processing failure" in record.getMessage())
+
+
+async def test_shutdown_cancels_inflight_job_without_sending():
+    provider = FakeProvider(gate=asyncio.Event())
+
+    async def start_job_and_exit():
+        async with api_client(provider, worker_count=1) as (client, _):
+            request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+            await client.post(f"/v1/requests/{request_id}/process")
+            await wait_for_status(client, request_id, "processing")
+        assert provider.notify_calls == []
+
+    await asyncio.wait_for(start_job_and_exit(), timeout=1)

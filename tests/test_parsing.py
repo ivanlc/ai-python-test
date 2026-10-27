@@ -137,3 +137,21 @@ def test_excessively_nested_output_is_rejected():
     with pytest.raises(ExtractionError):
         extract_notification('{"metadata":' * 40 + '{}' + '}' * 40,
                              "Enviar email a juan@example.com: hola")
+
+
+@pytest.mark.parametrize("body", [
+    "cita a las 10:00",
+    "consulta https://example.com/status: entrega lista",
+    'Dijo "Hola": vuelve mañana.',
+])
+def test_explicit_message_body_is_preserved_in_full(body):
+    content = json.dumps({"to": "600-111-222", "message": body, "type": "sms"})
+    notification = extract_notification(content, f"Enviar SMS al 600-111-222: {body}")
+    assert notification.message == body
+
+
+@pytest.mark.parametrize("message", ["00", "cita a las 10", "cita"])
+def test_partial_model_message_is_not_sent_when_full_body_is_explicit(message):
+    content = json.dumps({"to": "699888777", "message": message, "type": "sms"})
+    with pytest.raises(ExtractionError, match="complete explicit body"):
+        extract_notification(content, "Recordatorio por teléfono al 699888777: cita a las 10:00")
