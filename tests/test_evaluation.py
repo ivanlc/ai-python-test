@@ -2,7 +2,6 @@ from argparse import Namespace
 import json
 
 import httpx
-import pytest
 
 from evaluation.run import Case, ROOT, load_cases, rescore, run, score, summarize
 from app.models import Notification
@@ -200,3 +199,34 @@ async def test_anthropic_backend_separates_system_prompt_and_scores_empty_text(t
     assert report["summary"]["current"]["pipeline_correct"] == 4
     assert "secret" not in args.output.read_text()
     assert {path for path, _, _ in seen} == {"/v1/messages"}
+
+
+async def test_reask_mirrors_the_service_and_is_scored_separately(tmp_path, monkeypatch):
+    monkeypatch.setattr("evaluation.run.revision", lambda: "test-revision")
+    original_client = httpx.AsyncClient
+    systems = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        systems.append(payload["messages"][0]["content"])
+        user = payload["messages"][1]["content"]
+        if "luz@example.org" in user and "RETRY" in systems[-1]:
+            content = json.dumps(positive_case().expected.model_dump())
+        else:
+            content = "Lo siento, no puedo."  # off-protocol refusal: re-asked
+        return httpx.Response(200, json={"message": {"content": content}, "done": True, "done_reason": "stop"})
+
+    monkeypatch.setattr("evaluation.run.httpx.AsyncClient", lambda **kwargs:
+                        original_client(transport=httpx.MockTransport(handler), **kwargs))
+    args = run_args(tmp_path)
+    args.reask = True
+    assert await run(args) == 0
+    report = json.loads(args.output.read_text())
+    summary = report["summary"]["current"]
+    # The positive case recovers on re-ask. The negative case is a request-level
+    # rejection (no recipient), so it is never re-asked.
+    assert summary["pipeline_correct"] == 1
+    assert summary["reask_calls"] == 1
+    assert summary["pipeline_correct_with_reask"] == 2
+    assert summary["incorrect_acceptance_with_reask"] == 0
+    assert len(systems) == 3

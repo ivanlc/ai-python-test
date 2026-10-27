@@ -19,8 +19,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from app.models import Notification
-from app.parsing import ExtractionError, extract_notification
-from app.provider import SYSTEM_PROMPT
+from app.parsing import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
+from app.provider import RETRY_INSTRUCTIONS, SYSTEM_PROMPT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -82,11 +82,19 @@ def score(case: Case, content: str, done_reason: str = "stop") -> Dict[str, Any]
                                else parsed is not None and _matches(parsed, case.expected))
     accepted = None
     guardrail_error = None
+    declined = False
+    try:
+        # The service rejects these before calling the model (pre-flight).
+        check_request(case.user_input)
+        request_rejected = False
+    except RequestRejected:
+        request_rejected = True
     if complete:
         try:
             accepted = extract_notification(content, case.user_input).model_dump()
         except ExtractionError as exc:
             guardrail_error = str(exc)
+            declined = isinstance(exc, ModelDeclined)
     else:
         guardrail_error = f"Incomplete model completion: {done_reason}"
     pipeline_correct = (accepted is None if case.expected is None
@@ -103,6 +111,8 @@ def score(case: Case, content: str, done_reason: str = "stop") -> Dict[str, Any]
         "incorrect_acceptance": accepted is not None and not pipeline_correct,
         "model_error_blocked": not raw_correct and accepted is None,
         "guardrail_error": guardrail_error,
+        "request_rejected": request_rejected,
+        "model_declined": declined,
     }
 
 
@@ -114,6 +124,15 @@ def summarize(results: list[Dict[str, Any]]) -> Dict[str, Any]:
         durations = sorted(result["latency_seconds"] for result in scored)
         fields = ("raw_correct", "pipeline_correct", "valid_intent_rejected", "guardrail_false_rejection",
                   "incorrect_acceptance", "model_error_blocked")
+        reasked = [result for result in scored if "reask" in result]
+        reask_stats = {}
+        if reasked or any("reask_enabled" in result for result in scored):
+            final = [result["reask"]["score"] if "reask" in result else result["score"] for result in scored]
+            reask_stats = {
+                "reask_calls": len(reasked),
+                "pipeline_correct_with_reask": sum(bool(item["pipeline_correct"]) for item in final),
+                "incorrect_acceptance_with_reask": sum(bool(item["incorrect_acceptance"]) for item in final),
+            }
         summary[arm] = {
             "attempted": len(items),
             "completed": len(scored),
@@ -121,6 +140,7 @@ def summarize(results: list[Dict[str, Any]]) -> Dict[str, Any]:
             **{field: sum(bool(result["score"][field]) for result in scored) for field in fields},
             "median_latency_seconds": round(statistics.median(durations), 3) if durations else None,
             "p95_latency_seconds": round(durations[math.ceil(len(durations) * .95) - 1], 3) if durations else None,
+            **reask_stats,
         }
     return summary
 
@@ -205,14 +225,15 @@ def _settings(args) -> Dict[str, Any]:
     if getattr(args, "backend", "ollama") == "anthropic":
         # This model family rejects `temperature`; repeats expose its variance instead.
         return {"backend": "anthropic", "temperature": None, "max_tokens": 512, "thinking": "disabled",
+                "reask": getattr(args, "reask", False),
                 "repeats": getattr(args, "repeats", 1), "concurrency": 1}
     return {"backend": "ollama", "temperature": 0, "seed": args.seed, "num_predict": 512,
             "num_ctx": 4096, "think": False, "stream": False, "format": None,
+            "reask": getattr(args, "reask", False),
             "repeats": getattr(args, "repeats", 1), "concurrency": 1}
 
 
-async def run(args) -> int:
-    cases = load_cases(args.cases)
+def load_prompts(args) -> Dict[str, str]:
     prompts = {"current": SYSTEM_PROMPT}
     if args.include_baseline:
         prompts["baseline"] = (ROOT / "evaluation/baseline-prompt.txt").read_text().strip()
@@ -221,6 +242,12 @@ async def run(args) -> int:
         if not name or not path or name in prompts:
             raise SystemExit(f"Invalid or duplicate --prompt {spec!r}; use NAME=PATH")
         prompts[name] = Path(path).read_text().strip()
+    return prompts
+
+
+async def run(args) -> int:
+    cases = load_cases(args.cases)
+    prompts = load_prompts(args)
     repeats = getattr(args, "repeats", 1)
     backend = getattr(args, "backend", "ollama")
     complete = _complete_anthropic if backend == "anthropic" else _complete_ollama
@@ -252,7 +279,7 @@ async def run(args) -> int:
                 shift = (index + repeat) % len(arms)
                 arms = arms[shift:] + arms[:shift]
                 for arm in arms:
-                    result = {"case_id": case.id, "category": case.category, "arm": arm}
+                    result: Dict[str, Any] = {"case_id": case.id, "category": case.category, "arm": arm}
                     if repeats > 1:
                         result["repeat"] = repeat
                     start = time.monotonic()
@@ -266,6 +293,20 @@ async def run(args) -> int:
                             "output_tokens": completion["output_tokens"],
                             "score": score(case, completion["content"], completion["done_reason"]),
                         })
+                        first = result["score"]
+                        if getattr(args, "reask", False):
+                            result["reask_enabled"] = True
+                        # Mirror the service: one re-ask with the fixed reason, never
+                        # after a request-level rejection or an accepted output.
+                        if (getattr(args, "reask", False) and not first["pipeline_accepted"]
+                                and not first["request_rejected"] and not first["model_declined"]
+                                and completion["done_reason"] == "stop"):
+                            feedback = first["guardrail_error"]
+                            retry = await complete(client, args, prompts[arm] + RETRY_INSTRUCTIONS.format(
+                                reason=feedback), case.user_input)
+                            result["reask"] = {"feedback": feedback, "content": retry["content"],
+                                               "done_reason": retry["done_reason"],
+                                               "score": score(case, retry["content"], retry["done_reason"])}
                     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
                         result["execution_error"] = f"{type(exc).__name__}: {exc}"
                     report["results"].append(result)
@@ -294,6 +335,9 @@ def rescore(source: Path, output: Path) -> None:
     for result in report["results"]:
         if "content" in result:
             result["score"] = score(cases[result["case_id"]], result["content"], result["done_reason"])
+        if "reask" in result:
+            result["reask"]["score"] = score(cases[result["case_id"]], result["reask"]["content"],
+                                             result["reask"]["done_reason"])
     write_report(output, report)
 
 
@@ -307,6 +351,8 @@ def main() -> int:
     parser.add_argument("--prompt", action="append", metavar="NAME=PATH",
                         help="Additional system prompt arm to compare")
     parser.add_argument("--repeats", type=int, default=1)
+    parser.add_argument("--reask", action="store_true",
+                        help="Re-ask once after a model-attributable guardrail rejection, as the service does")
     parser.add_argument("--cases", type=Path, default=ROOT / "evaluation/cases.json")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--include-baseline", action="store_true")
