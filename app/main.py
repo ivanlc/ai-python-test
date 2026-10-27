@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Response, status
 import httpx
 
+from .ai.prompts import SYSTEM_PROMPT_SHA256
 from .config import Settings
 from .models import CreateRequest, CreateResponse, RequestStatus, StatusResponse
 from .providers import HTTPProvider
@@ -14,6 +15,7 @@ from .pipeline import CapacityError, NotFoundError, Provider, RequestService
 
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Optional[Settings] = None, provider: Optional[Provider] = None) -> FastAPI:
@@ -31,6 +33,7 @@ def create_app(settings: Optional[Settings] = None, provider: Optional[Provider]
                 ))
                 active_provider = HTTPProvider(client, settings)
             service = RequestService(active_provider, settings)
+            logger.info("Extraction prompt sha256=%s", SYSTEM_PROMPT_SHA256)
             application.state.service = service
             await service.start()
             try:

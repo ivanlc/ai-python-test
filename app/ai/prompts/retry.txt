@@ -1,0 +1,4 @@
+RETRY
+Your previous answer to this same request was rejected by validation: {reason}.
+Apply the rules above again to the same user message. If the request really cannot
+be extracted without guessing, answer REFUSED again.

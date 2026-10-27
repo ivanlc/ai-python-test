@@ -6,7 +6,7 @@ from typing import Literal, Optional
 import httpx
 from pydantic import BaseModel, Field
 
-from ..ai.prompts import RETRY_INSTRUCTIONS, SYSTEM_PROMPT
+from ..ai.prompts import SYSTEM_PROMPT, retry_instructions
 from ..config import Settings
 from ..models import Notification
 from .resilience import CircuitBreaker, ProviderError, SlidingWindowLimiter, retry_after_seconds
@@ -56,7 +56,7 @@ class HTTPProvider:
         can be appended to the system prompt without elevating untrusted data.
         The user message is unchanged on a re-ask.
         """
-        system = SYSTEM_PROMPT + (RETRY_INSTRUCTIONS.format(reason=feedback) if feedback else "")
+        system = SYSTEM_PROMPT + (retry_instructions(feedback) if feedback else "")
         payload = {"messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user_input},

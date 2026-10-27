@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.models import Notification
 from app.guardrails import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
-from app.ai.prompts import RETRY_INSTRUCTIONS, SYSTEM_PROMPT
+from app.ai.prompts import SYSTEM_PROMPT, retry_instructions
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -306,8 +306,8 @@ async def run(args) -> int:
                                 and not first["request_rejected"] and not first["model_declined"]
                                 and completion["done_reason"] == "stop"):
                             feedback = first["guardrail_error"]
-                            retry = await complete(client, args, prompts[arm] + RETRY_INSTRUCTIONS.format(
-                                reason=feedback), case.user_input)
+                            retry = await complete(client, args, prompts[arm] + retry_instructions(feedback),
+                                                   case.user_input)
                             result["reask"] = {"feedback": feedback, "content": retry["content"],
                                                "done_reason": retry["done_reason"],
                                                "score": score(case, retry["content"], retry["done_reason"])}

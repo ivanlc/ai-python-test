@@ -352,3 +352,19 @@ async def test_limiter_fails_before_sending_when_the_deadline_would_pass():
     await limiter.acquire()
     with pytest.raises(ProviderError, match="deadline"):
         await limiter.acquire(deadline=time.monotonic() + 1)
+
+
+def test_prompt_files_load_and_match_the_evaluated_prompt():
+    from pathlib import Path
+    import hashlib
+    from app.ai.prompts import SYSTEM_PROMPT_SHA256, retry_instructions
+
+    assert SYSTEM_PROMPT.startswith("You are a strict notification intent extractor.")
+    assert retry_instructions("Model refused the request").startswith("\n\nRETRY\n")
+    assert "rejected by validation: Model refused the request." in retry_instructions("Model refused the request")
+    assert SYSTEM_PROMPT_SHA256 == hashlib.sha256(SYSTEM_PROMPT.encode()).hexdigest()
+    # A prompt change must come with a fresh real-model run: the latest recorded
+    # evaluation has to be for exactly the prompt that ships.
+    root = Path(__file__).resolve().parents[1]
+    latest = json.loads((root / "evaluation/results/claude-haiku-5-5-reask-holdout2.json").read_text())
+    assert latest["prompts"]["current"]["sha256"] == SYSTEM_PROMPT_SHA256
