@@ -19,8 +19,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 
 from app.models import Notification
-from app.parsing import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
-from app.provider import RETRY_INSTRUCTIONS, SYSTEM_PROMPT
+from app.guardrails import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
+from app.ai.prompts import RETRY_INSTRUCTIONS, SYSTEM_PROMPT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -153,7 +153,11 @@ def revision() -> str:
 
 
 def guardrail_hash() -> str:
-    return hashlib.sha256((ROOT / "app/parsing.py").read_bytes()).hexdigest()
+    """SHA-256 over every guardrail module (path and content), in a stable order."""
+    digest = hashlib.sha256()
+    for path in sorted((ROOT / "app/guardrails").glob("*.py")):
+        digest.update(path.relative_to(ROOT).as_posix().encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()
 
 
 def write_report(path: Path, report: Dict[str, Any]) -> None:

@@ -9,8 +9,8 @@ import httpx
 
 from .config import Settings
 from .models import CreateRequest, CreateResponse, RequestStatus, StatusResponse
-from .provider import HTTPProvider
-from .service import CapacityError, NotFoundError, Provider, RequestService
+from .providers import HTTPProvider
+from .pipeline import CapacityError, NotFoundError, Provider, RequestService
 
 
 logging.basicConfig(level=logging.INFO)

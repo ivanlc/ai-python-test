@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.parsing import ExtractionError, extract_notification
+from app.guardrails import ExtractionError, extract_notification
 
 
 EMAIL_INPUT = "Enviar email a juan@example.com diciendo que su paquete está en camino."
@@ -337,7 +337,7 @@ def test_dropped_punctuation_is_not_restored_from_the_middle_of_a_request():
     "Envía un email: Hola.",
 ])
 def test_request_level_failures_are_classified_before_any_model_output(source):
-    from app.parsing import RequestRejected, check_request
+    from app.guardrails import RequestRejected, check_request
     with pytest.raises(RequestRejected):
         check_request(source)
     # The same classification applies whatever the model returns.
@@ -346,7 +346,7 @@ def test_request_level_failures_are_classified_before_any_model_output(source):
 
 
 def test_model_errors_are_not_classified_as_request_rejections():
-    from app.parsing import RequestRejected, check_request
+    from app.guardrails import RequestRejected, check_request
     check_request(EMAIL_INPUT)
     with pytest.raises(ExtractionError) as info:
         extract_notification("REFUSED", EMAIL_INPUT)

@@ -7,8 +7,9 @@ import pytest
 
 from app.config import Settings
 from app.models import Notification
-from app.provider import (CircuitBreaker, CircuitOpenError, HTTPProvider, ProviderError,
-                          SlidingWindowLimiter, SYSTEM_PROMPT, _retry_after)
+from app.ai.prompts import SYSTEM_PROMPT
+from app.providers import CircuitBreaker, CircuitOpenError, HTTPProvider, ProviderError, SlidingWindowLimiter
+from app.providers.resilience import retry_after_seconds
 
 
 def ai_response(content):
@@ -154,14 +155,14 @@ async def test_incomplete_or_ambiguous_chat_completion_is_rejected(payload):
 
 
 def test_retry_after_is_not_shortened_and_nonfinite_values_are_ignored():
-    assert _retry_after("30") == 30
-    assert _retry_after("nan") is None
-    assert _retry_after("inf") is None
+    assert retry_after_seconds("30") == 30
+    assert retry_after_seconds("nan") is None
+    assert retry_after_seconds("inf") is None
 
 
 def test_retry_after_http_date(monkeypatch):
-    monkeypatch.setattr("app.provider.time.time", lambda: 1445412470.0)
-    assert _retry_after("Wed, 21 Oct 2015 07:28:00 GMT") == 10.0
+    monkeypatch.setattr("app.providers.resilience.time.time", lambda: 1445412470.0)
+    assert retry_after_seconds("Wed, 21 Oct 2015 07:28:00 GMT") == 10.0
 
 
 async def test_excessive_retry_after_fails_without_retrying_early():
@@ -272,7 +273,7 @@ async def test_re_ask_appends_only_the_fixed_reason_to_the_system_prompt():
 
 async def test_ai_circuit_opens_fails_fast_and_recovers_with_one_probe(monkeypatch):
     now = [1000.0]
-    monkeypatch.setattr("app.provider.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("app.providers.resilience.time.monotonic", lambda: now[0])
     healthy = False
     calls = 0
 
@@ -306,7 +307,7 @@ async def test_ai_circuit_opens_fails_fast_and_recovers_with_one_probe(monkeypat
 
 def test_half_open_allows_a_single_probe_and_cancelled_probe_releases_it(monkeypatch):
     now = [0.0]
-    monkeypatch.setattr("app.provider.time.monotonic", lambda: now[0])
+    monkeypatch.setattr("app.providers.resilience.time.monotonic", lambda: now[0])
     breaker = CircuitBreaker("test", threshold=1, cooldown_seconds=1)
     breaker.on_failure()
     now[0] = 1.0

@@ -7,7 +7,7 @@ import pytest
 
 from app.config import Settings
 from app.main import create_app
-from app.provider import HTTPProvider, ProviderError
+from app.providers import HTTPProvider, ProviderError
 
 
 INPUT = "Enviar email a juan@example.com: hola"
