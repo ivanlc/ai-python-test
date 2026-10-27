@@ -572,7 +572,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -664,7 +664,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -960,7 +960,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -1168,7 +1168,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -1191,7 +1191,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -1487,7 +1487,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -1887,7 +1887,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -1956,7 +1956,7 @@
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
         "model_error_blocked": false,
-        "guardrail_error": "Expected exactly one complete object"
+        "guardrail_error": "Model refused the request"
       }
     },
     {
@@ -2107,14 +2107,18 @@
         "raw_schema_valid": true,
         "raw_refusal": false,
         "raw_correct": false,
-        "pipeline_accepted": false,
-        "accepted_payload": null,
-        "pipeline_correct": false,
-        "valid_intent_rejected": true,
+        "pipeline_accepted": true,
+        "accepted_payload": {
+          "to": "zoe@example.org",
+          "message": "\"No olvides las llaves.\"",
+          "type": "email"
+        },
+        "pipeline_correct": true,
+        "valid_intent_rejected": false,
         "guardrail_false_rejection": false,
         "incorrect_acceptance": false,
-        "model_error_blocked": true,
-        "guardrail_error": "Message does not match the complete explicit body"
+        "model_error_blocked": false,
+        "guardrail_error": null
       }
     },
     {
@@ -2390,11 +2394,11 @@
       "completed": 40,
       "execution_errors": 0,
       "raw_correct": 21,
-      "pipeline_correct": 37,
-      "valid_intent_rejected": 3,
+      "pipeline_correct": 38,
+      "valid_intent_rejected": 2,
       "guardrail_false_rejection": 0,
       "incorrect_acceptance": 0,
-      "model_error_blocked": 19,
+      "model_error_blocked": 18,
       "median_latency_seconds": 0.445,
       "p95_latency_seconds": 0.533
     },
@@ -2415,8 +2419,8 @@
   "finished_at": "2026-10-27T13:27:48.402095+00:00",
   "rescoring": {
     "source_report": "evaluation/results/qwen3.5-4b-initial.json",
-    "source_revision": "95f45bc1e0fdfa0ea97235335e5548a0124966a1",
-    "guardrail_sha256": "7e66e18a0f24e0151fc438a5806d030b27e082da7b94c7095e70d21015684a3c",
-    "rescored_at": "2026-10-27T13:38:46.073193+00:00"
+    "source_revision": "ce946049a0041550804f556e0723beaec396f7a0",
+    "guardrail_sha256": "7b8dfb1bcfe700e852d303f1e3c78b2ef724b45484af7384ed8a8c4b1f9f5e32",
+    "rescored_at": "2026-10-27T17:06:28.396974+00:00"
   }
 }
