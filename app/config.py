@@ -1,7 +1,9 @@
 """Validated environment configuration."""
 
 from dataclasses import dataclass
+import math
 import os
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
@@ -19,6 +21,23 @@ class Settings:
     ai_retries: int = 2
     notify_429_retries: int = 2
 
+    def __post_init__(self) -> None:
+        url = urlsplit(self.provider_base_url)
+        if url.scheme not in ("http", "https") or not url.hostname:
+            raise ValueError("PROVIDER_BASE_URL must be an HTTP URL with a host")
+        if not self.provider_api_key.strip():
+            raise ValueError("PROVIDER_API_KEY cannot be empty")
+        capacities = (self.worker_count, self.queue_capacity, self.max_records,
+                      self.record_ttl_seconds, self.notify_limit)
+        if any(type(value) is not int or value <= 0 for value in capacities):
+            raise ValueError("Capacity and lifetime settings must be positive integers")
+        durations = (self.notify_window_seconds, self.ai_timeout_seconds, self.notify_timeout_seconds)
+        if any(not math.isfinite(value) or value <= 0 for value in durations):
+            raise ValueError("Timeout and rate window settings must be positive and finite")
+        if any(type(value) is not int or value < 0
+               for value in (self.ai_retries, self.notify_429_retries)):
+            raise ValueError("Retry counts must be nonnegative integers")
+
     @classmethod
     def from_env(cls) -> "Settings":
         values = {
@@ -35,17 +54,4 @@ class Settings:
             "ai_retries": int(os.getenv("AI_RETRIES", cls.ai_retries)),
             "notify_429_retries": int(os.getenv("NOTIFY_429_RETRIES", cls.notify_429_retries)),
         }
-        settings = cls(**values)
-        if not settings.provider_base_url.startswith(("http://", "https://")):
-            raise ValueError("PROVIDER_BASE_URL must be an HTTP URL")
-        if not settings.provider_api_key:
-            raise ValueError("PROVIDER_API_KEY cannot be empty")
-        if min(settings.worker_count, settings.queue_capacity, settings.max_records,
-               settings.record_ttl_seconds, settings.notify_limit) <= 0:
-            raise ValueError("Capacity and lifetime settings must be positive")
-        if min(settings.notify_window_seconds, settings.ai_timeout_seconds,
-               settings.notify_timeout_seconds) <= 0:
-            raise ValueError("Timeout and rate window settings must be positive")
-        if min(settings.ai_retries, settings.notify_429_retries) < 0:
-            raise ValueError("Retry counts cannot be negative")
-        return settings
+        return cls(**values)

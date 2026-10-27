@@ -2,18 +2,18 @@
 
 import asyncio
 from collections import deque
-import logging
+from datetime import timezone
+from email.utils import parsedate_to_datetime
+import math
 import time
-from typing import Deque, Optional
+from typing import Deque, Literal, Optional
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field
 
 from .config import Settings
 from .models import Notification
 
-
-logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You extract one notification from the user's request.
 Return exactly one JSON object with three string fields: to, message, type.
@@ -29,15 +29,17 @@ class ProviderError(RuntimeError):
 
 
 class _ChatMessage(BaseModel):
+    role: Literal["assistant"] = "assistant"
     content: str
 
 
 class _Choice(BaseModel):
     message: _ChatMessage
+    finish_reason: Literal["stop"] = "stop"
 
 
 class _AIResponse(BaseModel):
-    choices: list[_Choice]
+    choices: list[_Choice] = Field(min_length=1, max_length=1)
 
 
 class _NotificationResponse(BaseModel):
@@ -52,7 +54,13 @@ class SlidingWindowLimiter:
         self.limit = limit
         self.window_seconds = window_seconds
         self._timestamps: Deque[float] = deque()
+        self._blocked_until = 0.0
         self._lock = asyncio.Lock()
+
+    async def defer(self, seconds: float) -> None:
+        """Share an explicit provider cooldown with all workers."""
+        async with self._lock:
+            self._blocked_until = max(self._blocked_until, time.monotonic() + seconds)
 
     async def acquire(self) -> None:
         while True:
@@ -60,11 +68,13 @@ class SlidingWindowLimiter:
                 now = time.monotonic()
                 while self._timestamps and self._timestamps[0] <= now - self.window_seconds:
                     self._timestamps.popleft()
-                if len(self._timestamps) < self.limit:
+                wait = max(0.0, self._blocked_until - now)
+                if len(self._timestamps) >= self.limit:
+                    wait = max(wait, self._timestamps[0] + self.window_seconds - now)
+                if wait <= 0:
                     self._timestamps.append(now)
                     return
-                wait = self._timestamps[0] + self.window_seconds - now + 0.01
-            await asyncio.sleep(wait)
+            await asyncio.sleep(wait + 0.01)
 
 
 class HTTPProvider:
@@ -85,18 +95,18 @@ class HTTPProvider:
                     timeout=self.settings.ai_timeout_seconds,
                 )
                 if response.status_code in (429, 500, 502, 503, 504) and attempt < self.settings.ai_retries:
-                    await asyncio.sleep(0.2 * 2 ** attempt)
+                    retry_after = (_retry_after(response.headers.get("Retry-After"))
+                                   if response.status_code == 429 else None)
+                    await asyncio.sleep(retry_after if retry_after is not None else 0.2 * 2 ** attempt)
                     continue
                 response.raise_for_status()
                 parsed = _AIResponse.model_validate(response.json())
-                if not parsed.choices:
-                    raise ProviderError("AI response has no choices")
                 return parsed.choices[0].message.content
-            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            except httpx.RequestError as exc:
                 if attempt == self.settings.ai_retries:
                     raise ProviderError("AI request failed") from exc
                 await asyncio.sleep(0.2 * 2 ** attempt)
-            except (httpx.HTTPStatusError, ValueError, ValidationError) as exc:
+            except (httpx.HTTPStatusError, ValueError) as exc:
                 raise ProviderError("AI response was invalid") from exc
         raise ProviderError("AI retries exhausted")
 
@@ -111,14 +121,16 @@ class HTTPProvider:
                 )
             except httpx.RequestError as exc:
                 raise ProviderError("Notification outcome is unknown") from exc
-            if response.status_code == 429 and attempt < self.settings.notify_429_retries:
+            if response.status_code == 429:
                 retry_after = _retry_after(response.headers.get("Retry-After"))
-                await asyncio.sleep(retry_after if retry_after is not None else 0.5 * 2 ** attempt)
-                continue
+                await self.limiter.defer(retry_after if retry_after is not None
+                                         else self.settings.notify_window_seconds)
+                if attempt < self.settings.notify_429_retries:
+                    continue
             try:
                 response.raise_for_status()
                 parsed = _NotificationResponse.model_validate(response.json())
-            except (httpx.HTTPStatusError, ValueError, ValidationError) as exc:
+            except (httpx.HTTPStatusError, ValueError) as exc:
                 raise ProviderError("Notification was rejected or its outcome is unknown") from exc
             if parsed.status != "delivered" or not parsed.provider_id:
                 raise ProviderError("Notification delivery was not confirmed")
@@ -132,5 +144,15 @@ def _retry_after(value: Optional[str]) -> Optional[float]:
     try:
         seconds = float(value)
     except ValueError:
+        try:
+            date = parsedate_to_datetime(value)
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+            seconds = max(0.0, date.timestamp() - time.time())
+        except (ValueError, TypeError, OverflowError):
+            return None
+    if not math.isfinite(seconds) or seconds < 0:
         return None
-    return min(max(seconds, 0.0), 10.0)
+    if seconds > 60:
+        raise ProviderError("Provider retry delay exceeds the 60-second retry budget")
+    return seconds

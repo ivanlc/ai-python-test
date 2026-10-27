@@ -8,7 +8,7 @@ from typing import Dict, List, Protocol
 from uuid import uuid4
 
 from .config import Settings
-from .models import RequestStatus
+from .models import Notification, RequestStatus
 from .parsing import ExtractionError, extract_notification
 from .provider import ProviderError
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class Provider(Protocol):
     async def extract(self, user_input: str) -> str: ...
-    async def notify(self, notification) -> None: ...
+    async def notify(self, notification: Notification) -> None: ...
 
 
 class NotFoundError(LookupError):

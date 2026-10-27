@@ -7,7 +7,7 @@ import pytest
 
 from app.config import Settings
 from app.main import create_app
-from app.models import RequestStatus
+from app.provider import HTTPProvider, ProviderError
 
 
 INPUT = "Enviar email a juan@example.com: hola"
@@ -54,7 +54,8 @@ async def wait_for_status(client, request_id, expected):
 
 
 async def test_contract_states_and_idempotency():
-    provider = FakeProvider()
+    gate = asyncio.Event()
+    provider = FakeProvider(gate=gate)
     async with api_client(provider) as (client, _):
         created = await client.post("/v1/requests", json={"user_input": INPUT})
         assert created.status_code == 201
@@ -64,6 +65,7 @@ async def test_contract_states_and_idempotency():
         first = await client.post(f"/v1/requests/{request_id}/process")
         second = await client.post(f"/v1/requests/{request_id}/process")
         assert first.status_code == second.status_code == 202
+        gate.set()
         assert (await wait_for_status(client, request_id, "sent")).status_code == 200
         assert (await client.post(f"/v1/requests/{request_id}/process")).status_code == 200
         assert provider.extract_calls == len(provider.notify_calls) == 1
@@ -73,6 +75,7 @@ async def test_contract_states_and_idempotency():
 async def test_invalid_input_and_unknown_id():
     async with api_client(FakeProvider()) as (client, _):
         assert (await client.post("/v1/requests", json={"user_input": ""})).status_code == 422
+        assert (await client.post("/v1/requests", json={"user_input": "  \n "})).status_code == 422
         assert (await client.post("/v1/requests", json={})).status_code == 422
         assert (await client.get("/v1/requests/missing")).status_code == 404
         assert (await client.post("/v1/requests/missing/process")).status_code == 404
@@ -80,7 +83,9 @@ async def test_invalid_input_and_unknown_id():
 
 async def test_refusal_and_invalid_recipient_do_not_notify():
     for output in ("Refused: Content analysis flagged sensitive information.",
-                   '{"to":"other@example.com","message":"hola","type":"email"}'):
+                   '{"to":"other@example.com","message":"hola","type":"email"}',
+                   'Refused: cannot send. ' + OUTPUT,
+                   '{"to":"juan@example.com","message":"wrong","message":"hola","type":"email"}'):
         provider = FakeProvider(output=output)
         async with api_client(provider) as (client, _):
             request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
@@ -122,3 +127,71 @@ async def test_expired_unstarted_request_can_be_pruned():
         service._records[old_id].updated_at = time.monotonic() - 2
         assert (await client.post("/v1/requests", json={"user_input": INPUT})).status_code == 201
         assert (await client.get(f"/v1/requests/{old_id}")).status_code == 404
+
+
+async def test_concurrent_process_calls_schedule_one_job():
+    gate = asyncio.Event()
+    provider = FakeProvider(gate=gate)
+    async with api_client(provider, worker_count=2) as (client, _):
+        request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+        responses = await asyncio.gather(*(
+            client.post(f"/v1/requests/{request_id}/process") for _ in range(100)))
+        assert all(response.status_code == 202 for response in responses)
+        await wait_for_status(client, request_id, "processing")
+        assert provider.extract_calls == 1
+        gate.set()
+        await wait_for_status(client, request_id, "sent")
+        assert len(provider.notify_calls) == 1
+
+
+async def test_worker_limit_holds_with_multiple_queued_jobs():
+    gate = asyncio.Event()
+    provider = FakeProvider(gate=gate)
+    async with api_client(provider, worker_count=2, queue_capacity=10) as (client, _):
+        ids = [(await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+               for _ in range(6)]
+        for request_id in ids:
+            await client.post(f"/v1/requests/{request_id}/process")
+        await wait_for_status(client, ids[1], "processing")
+        assert provider.extract_calls == 2
+        assert (await client.get(f"/v1/requests/{ids[2]}")).json()["status"] == "queued"
+        gate.set()
+        for request_id in ids:
+            await wait_for_status(client, request_id, "sent")
+
+
+async def test_provider_failure_is_terminal_without_delivery():
+    provider = FakeProvider(error=ProviderError("timeout"))
+    async with api_client(provider) as (client, _):
+        request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+        await client.post(f"/v1/requests/{request_id}/process")
+        await wait_for_status(client, request_id, "failed")
+        await client.post(f"/v1/requests/{request_id}/process")
+        assert provider.extract_calls == 1
+        assert provider.notify_calls == []
+
+
+def test_openapi_documents_both_process_success_codes():
+    responses = create_app().openapi()["paths"]["/v1/requests/{request_id}/process"]["post"]["responses"]
+    assert {"200", "202"} <= responses.keys()
+
+
+async def test_api_pipeline_with_http_adapter():
+    paths = []
+
+    def handler(request):
+        paths.append(request.url.path)
+        assert request.headers["X-API-Key"] == "test-dev-2026"
+        if request.url.path == "/v1/ai/extract":
+            return httpx.Response(200, json={"choices": [{"message": {"content": OUTPUT}}]})
+        return httpx.Response(200, json={"status": "delivered", "provider_id": "p-1"})
+
+    settings = Settings()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler),
+                                base_url=settings.provider_base_url,
+                                headers={"X-API-Key": settings.provider_api_key}) as external_client:
+        async with api_client(HTTPProvider(external_client, settings)) as (client, _):
+            request_id = (await client.post("/v1/requests", json={"user_input": INPUT})).json()["id"]
+            await client.post(f"/v1/requests/{request_id}/process")
+            await wait_for_status(client, request_id, "sent")
+    assert paths == ["/v1/ai/extract", "/v1/notify"]
