@@ -1,3 +1,5 @@
 -r app/requirements.txt
-pytest==8.3.5
-pytest-asyncio==0.24.0
+pytest==9.1.1
+pytest-asyncio==1.4.1
+ruff==0.17.3
+mypy==2.4.0

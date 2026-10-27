@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, types and tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            app/requirements.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app evaluation tests
+      - run: mypy app evaluation
+      - run: pytest -q
+
+  e2e:
+    name: End-to-end smoke against the bundled mock
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose up -d --build --wait provider
+      - run: docker compose up -d --build app
+      - run: python3 scripts/smoke.py
+      - if: always()
+        run: docker compose logs app provider --tail 200
+      - if: always()
+        run: docker compose down
