@@ -376,7 +376,7 @@ def test_prompt_files_load_and_match_the_evaluated_prompt():
     # A prompt change must come with a fresh real-model run: the latest recorded
     # evaluation has to be for exactly the prompt that ships.
     root = Path(__file__).resolve().parents[1]
-    latest = json.loads((root / "evaluation/results/qwen3.5-4b-delivery-main.json").read_text())
+    latest = json.loads((root / "evaluation/results/claude-haiku-5-5-final-main.json").read_text())
     assert latest["status"] == "complete"
     assert latest["prompts"]["current"]["sha256"] == SYSTEM_PROMPT_SHA256
     # Guardrail changes can be checked by re-scoring the saved outputs (the prompt,
