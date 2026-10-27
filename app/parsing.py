@@ -36,8 +36,8 @@ ALIASES = {
 }
 
 
-def _object_span(text: str) -> Tuple[int, int]:
-    """Require one complete object; reject additional truncated objects too."""
+def _scan_objects(text: str) -> Tuple[List[Tuple[int, int]], int, Optional[str], Optional[int]]:
+    """Return complete top-level objects plus the scanner state at the end of text."""
     objects: List[Tuple[int, int]] = []
     start = None
     depth = 0
@@ -67,9 +67,32 @@ def _object_span(text: str) -> Tuple[int, int]:
             if depth == 0 and start is not None:
                 objects.append((start, index + 1))
                 start = None
+    return objects, depth, quote, start
+
+
+def _object_span(text: str) -> Tuple[int, int]:
+    """Require one complete object; reject additional truncated objects too."""
+    objects, depth, quote, _ = _scan_objects(text)
     if depth or quote or len(objects) != 1:
         raise ExtractionError("Expected exactly one complete object")
     return objects[0]
+
+
+def _close_truncated_object(text: str) -> str:
+    """Close a single flat object whose last string value is complete.
+
+    Only the missing closing brace (optionally preceded by an ellipsis or a
+    trailing comma) is added. Open strings, nested objects, a second object, or
+    a dangling key are never completed, so no field value is synthesized.
+    """
+    objects, depth, quote, start = _scan_objects(text)
+    if objects or depth != 1 or quote or start is None:
+        raise ExtractionError("Expected exactly one complete object")
+    tail = text[start:].rstrip()
+    tail = re.sub(r"\s*(?:\.{3}|\u2026)$", "", tail).rstrip().rstrip(",").rstrip()
+    if not tail.endswith(("'", '"')):
+        raise ExtractionError("Truncated object cannot be closed safely")
+    return text[:start] + tail + "}"
 
 
 def _unique_object(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
@@ -108,7 +131,17 @@ def parse_output(content: str) -> Dict[str, Any]:
     """Accept JSON, Python-style string quotes, and simple bare keys only."""
     if not isinstance(content, str) or len(content) > 12000:
         raise ExtractionError("Model output is absent or oversized")
-    start, end = _object_span(content)
+    if "{" not in content:
+        if REFUSAL_RE.search(content):
+            raise ExtractionError("Model refused the request")
+        raise ExtractionError("Model output contains no object")
+    try:
+        start, end = _object_span(content)
+    except ExtractionError:
+        # Recover only an object cut after its last complete value; validation
+        # below still grounds every field in the user's request.
+        content = _close_truncated_object(content)
+        start, end = _object_span(content)
     if REFUSAL_RE.search(content[:start] + content[end:]):
         raise ExtractionError("Model refused the request")
     candidate = content[start:end]
@@ -168,6 +201,39 @@ def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str]]:
     return user_input, None
 
 
+def _source_spans(message: str, user_input: str) -> List[Tuple[int, int]]:
+    """Locate the message in the request, ignoring only letter case."""
+    return [(match.start(), match.end())
+            for match in re.finditer(re.escape(message), user_input, re.IGNORECASE)]
+
+
+def _contains_contact(text: str) -> bool:
+    return (any("@" in match.group(0) for match in CONTACT_TOKEN_RE.finditer(text))
+            or PHONE_SOURCE_RE.search(text) is not None)
+
+
+def _is_inner_colon_suffix(fragment: str, body: str) -> bool:
+    """Detect a body split at a later colon, e.g. `00` from `cita a las 10:00`.
+
+    Repair is limited to a contact-free body: a later recipient in the body may
+    signal a second notification that must not be merged into this one.
+    """
+    match = re.search(re.escape(fragment.strip()) + r"\Z", body, re.IGNORECASE)
+    if match is None or match.start() == 0:
+        return False
+    return body[:match.start()].rstrip().endswith(":") and not _contains_contact(body)
+
+
+QUOTE_PAIRS = {'"': '"', "'": "'", "\u00ab": "\u00bb", "\u201c": "\u201d"}
+
+
+def _is_unquoted_body(message: str, body: str) -> bool:
+    """Accept the exact text inside quotes that wrap the whole explicit body."""
+    if len(body) < 3 or QUOTE_PAIRS.get(body[0]) != body[-1]:
+        return False
+    return message.strip().casefold() == body[1:-1].strip().casefold()
+
+
 def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
     """Ground the recipient in the request and require a coherent channel."""
     intent_input, explicit_body = _split_explicit_body(user_input)
@@ -201,14 +267,34 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
     message = fields.get("message", "")
     if not message or len(message) > 4000:
         raise ExtractionError("Message is absent or oversized")
-    if message.casefold() not in user_input.casefold():
-        raise ExtractionError("Message is not grounded in the request")
     if message.casefold() == user_input.strip().casefold():
         raise ExtractionError("Message is the command rather than its body")
+    spans = _source_spans(message, user_input)
+    if not spans:
+        raise ExtractionError("Message is not grounded in the request")
     if explicit_body is not None:
-        if message.casefold() != explicit_body.casefold():
+        # The delimited source text is authoritative: restore its exact casing,
+        # or its full text when the model split at a later colon inside it.
+        if not (message.casefold() == explicit_body.casefold()
+                or _is_inner_colon_suffix(message, explicit_body)
+                or _is_unquoted_body(message, explicit_body)):
             raise ExtractionError("Message does not match the complete explicit body")
-    elif BODY_DESCRIPTION_RE.match(message):
+        message = explicit_body
+    else:
+        contact_spans = [(match.start(), match.end()) for match in CONTACT_TOKEN_RE.finditer(intent_input)
+                         if "@" in match.group(0)]
+        contact_spans += [(match.start(), match.end()) for match in phone_matches]
+        body_spans = [(start, end) for start, end in spans
+                      if not any(start < c_end and c_start < end for c_start, c_end in contact_spans)]
+        if not body_spans:
+            raise ExtractionError("Message includes the command or recipient rather than only its body")
+        # Grounding is case-insensitive; send the user's original casing, and keep
+        # final sentence punctuation that a model dropped at the end of the request.
+        start, end = body_spans[0]
+        if re.fullmatch(r"[.!?\u2026]+", user_input[end:].rstrip()):
+            end = len(user_input.rstrip())
+        message = user_input[start:end]
+    if explicit_body is None and BODY_DESCRIPTION_RE.match(message):
         quoted = any(f"{opening}{message}{closing}" in user_input
                      for opening, closing in [('"', '"'), ("'", "'"), ("«", "»")])
         introduced = any(user_input[match.end():].strip().casefold() == message.casefold()

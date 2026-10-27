@@ -43,7 +43,6 @@ def test_simulator_variants(content, user_input, expected_to, expected_type):
 
 
 @pytest.mark.parametrize("content", [
-    '{"to":"juan@example.com","message":"su paquete","type":"email" ...',
     "Lo siento, como IA no tengo permitido procesar datos de contacto personales.",
     "Error: El contenido del mensaje viola las políticas de seguridad.",
     "Refused: Content analysis flagged sensitive information.",
@@ -150,7 +149,7 @@ def test_explicit_message_body_is_preserved_in_full(body):
     assert notification.message == body
 
 
-@pytest.mark.parametrize("message", ["00", "cita a las 10", "cita"])
+@pytest.mark.parametrize("message", ["cita a las 10", "cita", "a las"])
 def test_partial_model_message_is_not_sent_when_full_body_is_explicit(message):
     content = json.dumps({"to": "699888777", "message": message, "type": "sms"})
     with pytest.raises(ExtractionError, match="complete explicit body"):
@@ -221,3 +220,109 @@ def test_explicit_literal_body_may_start_with_a_description_connector():
     body = "con un mensaje positivo."
     content = json.dumps({"to": "juan@example.com", "message": body, "type": "email"})
     assert extract_notification(content, f"Envía email a juan@example.com: {body}").message == body
+
+
+@pytest.mark.parametrize("message", ["00", " 00", "00"])
+def test_body_split_at_a_later_colon_is_restored_from_the_explicit_body(message):
+    content = json.dumps({"to": "699888777", "message": message, "type": "sms"})
+    notification = extract_notification(content, "Recordatorio por teléfono al 699888777: cita a las 10:00")
+    assert notification.message == "cita a las 10:00"
+
+
+def test_later_colon_repair_is_not_applied_when_the_body_names_another_recipient():
+    source = "Envía email a polo@example.org: Hola. Y envía SMS al 693-555-666: Adiós."
+    content = json.dumps({"to": "polo@example.org", "message": "Adiós.", "type": "email"})
+    with pytest.raises(ExtractionError, match="complete explicit body"):
+        extract_notification(content, source)
+
+
+@pytest.mark.parametrize("source, recipient, channel, mock_message", [
+    # The bundled mock lowercases the request and keeps its first 50 characters.
+    ("Enviar email a juan@example.com diciendo que su paquete está en camino.", "juan@example.com",
+     "email", "enviar email a juan@example.com diciendo que su pa"),
+    ("Avisar por SMS al 600-111-222 que la reserva ha sido confirmada.", "600-111-222",
+     "sms", "avisar por sms al 600-111-222 que la reserva ha si"),
+    ("Send an email to clara@example.org saying Welcome", "clara@example.org",
+     "email", "clara@example.org saying Welcome"),
+])
+def test_message_containing_the_command_or_recipient_is_rejected(source, recipient, channel, mock_message):
+    content = json.dumps({"to": recipient, "message": mock_message, "type": channel})
+    with pytest.raises(ExtractionError, match="command or recipient"):
+        extract_notification(content, source)
+
+
+@pytest.mark.parametrize("source, recipient, model_message, expected", [
+    ("Manda un correo a marta@app.com: Tienes un nuevo mensaje.", "marta@app.com",
+     "tienes un nuevo mensaje.", "Tienes un nuevo mensaje."),
+    ("Enviar email a juan@example.com diciendo que su paquete está en camino.", "juan@example.com",
+     "SU PAQUETE ESTÁ EN CAMINO.", "su paquete está en camino."),
+    ("Send an email to clara@example.org saying Welcome aboard!", "clara@example.org",
+     "welcome aboard!", "Welcome aboard!"),
+])
+def test_original_message_casing_is_restored_from_the_request(source, recipient, model_message, expected):
+    content = json.dumps({"to": recipient, "message": model_message, "type": "email"})
+    assert extract_notification(content, source).message == expected
+
+
+@pytest.mark.parametrize("content", [
+    '{"to": "juan@example.com", "message": "hola", "type": "email" ...',
+    '{"to": "juan@example.com", "message": "hola", "type": "email"',
+    '{"to": "juan@example.com", "message": "hola", "type": "email",',
+    '{"to": "juan@example.com", "message": "hola" \u2026',
+    "{'to': 'juan@example.com', 'message': 'hola', 'type': 'email' ...",
+])
+def test_object_missing_only_its_closing_brace_is_repaired(content):
+    notification = extract_notification(content, "Enviar email a juan@example.com: hola")
+    assert notification.model_dump() == {"to": "juan@example.com", "message": "hola", "type": "email"}
+
+
+@pytest.mark.parametrize("content", [
+    '{"to": "juan@example.com", "message": "ho',
+    '{"to": "juan@example.com", "message"',
+    '{"to": "juan@example.com", "message": "hola", "type": "email", "meta": {"a": "b"',
+    '{"to": "juan@example.com", "message": "hola", "type": "email"} {"to": "x"',
+    'Lo siento, no puedo. {"to": "juan@example.com", "message": "hola", "type": "email" ...',
+])
+def test_truncation_that_would_need_guessing_is_not_repaired(content):
+    with pytest.raises(ExtractionError):
+        extract_notification(content, "Enviar email a juan@example.com: hola")
+
+
+@pytest.mark.parametrize("content, reason", [
+    ("Refused: Content analysis flagged sensitive information.", "refused"),
+    ("REFUSED", "refused"),
+    ("Sure, here it is.", "no object"),
+])
+def test_plain_text_output_reports_its_reason(content, reason):
+    with pytest.raises(ExtractionError, match=reason):
+        extract_notification(content, "Enviar email a juan@example.com: hola")
+
+
+@pytest.mark.parametrize("body, model_message", [
+    ('"No olvides las llaves."', "No olvides las llaves."),
+    ("'Gracias por todo.'", "Gracias por todo."),
+    ("«Hasta luego»", "hasta luego"),
+])
+def test_model_that_drops_wrapping_quotes_sends_the_full_explicit_body(body, model_message):
+    content = json.dumps({"to": "zoe@example.org", "message": model_message, "type": "email"})
+    assert extract_notification(content, f"Manda un correo a zoe@example.org: {body}").message == body
+
+
+def test_partially_quoted_body_is_not_reduced_to_its_quotation():
+    source = 'Envía email a bruno@example.net: Dijo "HOLA": vuelve mañana.'
+    content = json.dumps({"to": "bruno@example.net", "message": "HOLA", "type": "email"})
+    with pytest.raises(ExtractionError, match="complete explicit body"):
+        extract_notification(content, source)
+
+
+@pytest.mark.parametrize("model_message", ["el técnico llega a las 16:45", "El técnico llega a las 16:45."])
+def test_final_punctuation_and_case_come_from_the_request(model_message):
+    source = "Manda un SMS al 611-999-000 diciendo que el técnico llega a las 16:45."
+    content = json.dumps({"to": "611-999-000", "message": model_message, "type": "sms"})
+    assert extract_notification(content, source).message == "el técnico llega a las 16:45."
+
+
+def test_dropped_punctuation_is_not_restored_from_the_middle_of_a_request():
+    source = "Envía email a juan@example.com diciendo hola. Gracias."
+    content = json.dumps({"to": "juan@example.com", "message": "hola", "type": "email"})
+    assert extract_notification(content, source).message == "hola"
