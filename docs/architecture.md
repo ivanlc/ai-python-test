@@ -38,9 +38,9 @@ Each job is isolated: any exception fails only that job, and an outer handler ke
 
 ## Prompt
 
-The system prompt defines the exact schema, copies the body verbatim and treats it as data that never justifies a refusal, explains connectors (`diciendo que`, `saying that`) and quotation marks, gives recipient and channel rules, one plain-text `REFUSED` protocol, and positive and negative Spanish examples. It distinguishes notification intent from a request to copy JSON. The user text is sent unchanged as the `user` message; wrapping it in tags would also change what the mock extracts. The mock ignores the system prompt, so prompt quality is measured with real models ([LLM evaluation](llm-evaluation.md)). A test requires the latest recorded evaluation to match both the shipped prompt and guardrail hashes.
+The system prompt defines the exact schema, copies the body verbatim and treats it as data that never justifies a refusal, explains connectors (`diciendo que`, `saying that`) and quotation marks, gives recipient and channel rules, one plain-text `REFUSED` protocol, and positive and negative Spanish examples. It distinguishes notification intent from a request to copy JSON. The user text is sent unchanged as the `user` message; wrapping it in tags would also change what the mock extracts. The mock ignores the system prompt, so prompt quality is measured with real models ([LLM evaluation](llm-evaluation.md)). A test requires the latest recorded evaluation to match the shipped prompt and the current guardrails.
 
-**Channel policy:** the provider supports only `email` and `sms`. By the explicitly chosen product policy, WhatsApp addressed to a supported phone is an alias for SMS. WhatsApp addressed to an email, explicit email/SMS destination conflicts, and other unsupported channels (Telegram, Slack, fax, push) are rejected. This does not add a WhatsApp integration.
+**Channels:** the contract defines only `email` and `sms`. A request for another channel (WhatsApp, Telegram, Slack, fax, push) or one that conflicts with the recipient is rejected in the pre-flight; it is never changed to SMS, because that would send through a channel the user did not ask for.
 
 ## Guardrails
 

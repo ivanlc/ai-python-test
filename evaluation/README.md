@@ -25,12 +25,12 @@ Datasets:
 
 | File | Cases | Purpose |
 | --- | ---: | --- |
-| `cases.json` | 40 (25 valid, 15 refusals) | Main set: body integrity, quotes, Unicode, invalid recipients, channel conflicts, unsupported channels, multiple requests, injections, contacts inside bodies |
+| `cases.json` | 40 (24 valid, 16 refusals) | Main set: body integrity, quotes, Unicode, invalid recipients, channel conflicts, unsupported channels, multiple requests, injections, contacts inside bodies |
 | `holdout.json` | 20 (12/8) | Separate set; one finding informed a later fix |
 | `k6.json` | 10 (8/2) | The four prompts of the supplied k6 load test plus connector variants (`diciendo que`, `que`, `saying that`) |
 | `holdout2.json` | 20 (12/8) | Frozen before the historical v3 prompt; regression data for later revisions |
 
-Delivery policy correction: only the expected outcome of `n11` changed, from refusal to SMS, to follow the user's explicit WhatsApp-to-phone policy. Its input is unchanged. Older reports retain the original 24/16 oracle and must not be compared as if their policy were identical. None of the supplied k6 scenarios were changed.
+The `qwen3.5-4b-delivery-*` reports were scored while `n11` (a WhatsApp request) temporarily expected SMS; that policy was reverted and `n11` again expects a refusal.
 
 Each call uses a fresh system/user conversation. Case order is shuffled with seed 42 and arm order rotates. Concurrency is one and generation is limited to 512 tokens. Thinking is disabled on both backends. JSON mode, tools and prefill are deliberately absent: the prompt must produce valid output on its own, and a refusal remains plain text. Ollama additionally uses temperature 0 and a 4,096-token context; the Anthropic model used does not accept a temperature. Results are in [the real-model report](../docs/llm-evaluation.md).
 
