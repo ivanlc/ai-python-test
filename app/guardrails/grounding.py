@@ -23,8 +23,8 @@ CONTACT_TOKEN_RE = re.compile(r'''[^\s<>\[\](){}"',;:]+''')
 PHONE_RE = re.compile(r"[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}")
 PHONE_SOURCE_RE = re.compile(r"(?<![\w+-])[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}(?![\w-])")
 EMAIL_CHANNEL_RE = re.compile(r"\b(?:e-?mail|correo)\b", re.IGNORECASE)
-SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono|whats\s*app)\b", re.IGNORECASE)
-UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:telegram|slack|fax|push)\b", re.IGNORECASE)
+SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono)\b", re.IGNORECASE)
+UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:whats\s*app|telegram|slack|fax|push)\b", re.IGNORECASE)
 BODY_DESCRIPTION_RE = re.compile(
     r"^(?:(?:con|with)\s+)?(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
 BODY_INTRODUCER_RE = re.compile(

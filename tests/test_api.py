@@ -316,12 +316,10 @@ async def test_request_level_rejection_never_calls_the_model(user_input):
     assert provider.extract_calls == 0 and provider.notify_calls == []
 
 
-async def test_whatsapp_alias_is_delivered_once_as_sms():
+async def test_unsupported_channel_fails_before_calling_the_model():
     provider = SequenceProvider(['{"to":"611222333","message":"Hola.","type":"sms"}'])
-    assert await run_one(provider, "Manda un WhatsApp al 611222333: Hola.") == "sent"
-    assert provider.extract_calls == 1
-    assert len(provider.notify_calls) == 1
-    assert provider.notify_calls[0].type == "sms"
+    assert await run_one(provider, "Manda un WhatsApp al 611222333: Hola.") == "failed"
+    assert provider.extract_calls == 0 and provider.notify_calls == []
 
 
 async def test_job_deadline_bounds_a_hanging_extraction():

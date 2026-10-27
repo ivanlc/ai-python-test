@@ -69,8 +69,7 @@ def test_summary_keeps_execution_errors_in_the_denominator():
 def test_dataset_is_frozen_with_unique_positive_and_negative_cases():
     cases = load_cases(ROOT / "evaluation/cases.json")
     assert len(cases) == 40
-    # n11 follows the explicitly approved WhatsApp-to-SMS product policy.
-    assert sum(case.expected is not None for case in cases) == 25
+    assert sum(case.expected is not None for case in cases) == 24
     assert len({case.id for case in cases}) == len(cases)
 
 

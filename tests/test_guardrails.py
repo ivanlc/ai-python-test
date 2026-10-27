@@ -198,22 +198,18 @@ def test_entire_command_is_not_a_missing_message_fallback():
         extract_notification(content, source)
 
 
-@pytest.mark.parametrize("label", ["WhatsApp", "whatsapp", "Whats App"])
-def test_whatsapp_to_phone_uses_the_approved_sms_policy(label):
-    content = json.dumps({"to": "611222333", "message": "Hola.", "type": "sms"})
-    assert extract_notification(content, f"Manda un {label} al 611222333: Hola.").type == "sms"
-
-
-def test_other_unsupported_channels_are_not_changed_to_sms():
-    content = json.dumps({"to": "611222333", "message": "Hola.", "type": "sms"})
+@pytest.mark.parametrize("source", [
+    "Manda un WhatsApp al 611222333: Hola.",
+    "Manda un whatsapp al 611222333: Hola.",
+    "Manda un Whats App al 611222333: Hola.",
+    "Manda un WhatsApp a ana@example.com: Hola.",
+    "Manda un Telegram al 611222333: Hola.",
+])
+def test_unsupported_channel_is_not_silently_changed_to_sms(source):
+    recipient = "ana@example.com" if "@" in source else "611222333"
+    content = json.dumps({"to": recipient, "message": "Hola.", "type": "email" if "@" in source else "sms"})
     with pytest.raises(ExtractionError, match="unsupported"):
-        extract_notification(content, "Manda un Telegram al 611222333: Hola.")
-
-
-def test_whatsapp_to_email_is_a_channel_conflict():
-    content = json.dumps({"to": "ana@example.com", "message": "Hola.", "type": "email"})
-    with pytest.raises(ExtractionError, match="conflicts"):
-        extract_notification(content, "Manda un WhatsApp a ana@example.com: Hola.")
+        extract_notification(content, source)
 
 
 def test_an_address_in_the_body_cannot_replace_the_intended_recipient():
@@ -364,6 +360,7 @@ def test_a_connector_never_allows_a_partial_body(model_message):
 
 @pytest.mark.parametrize("source", [
     "Envía email a ana@example.com y a juan@example.com: Hola.",
+    "Manda un WhatsApp al 611222333: Hola.",
     "Manda un Telegram al 611222333: Hola.",
     "Envía SMS a ana@example.com: Hola.",
     "Envía email a juan..perez@example.com: Hola.",
