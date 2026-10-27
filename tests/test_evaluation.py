@@ -152,3 +152,51 @@ def test_rescoring_preserves_generation_evidence(tmp_path, monkeypatch):
     assert updated["prompts"] == original["prompts"]
     assert updated["dataset_sha256"] == original["dataset_sha256"]
     assert updated["rescoring"]["source_revision"] == "new-validation"
+
+
+def test_additional_datasets_are_disjoint_from_earlier_sets():
+    names = ["cases", "holdout", "k6", "holdout2"]
+    sets = {name: load_cases(ROOT / f"evaluation/{name}.json") for name in names}
+    assert len(sets["k6"]) == 10 and len(sets["holdout2"]) == 20
+    for index, name in enumerate(names):
+        for other in names[index + 1:]:
+            assert not {c.id for c in sets[name]} & {c.id for c in sets[other]}
+            assert not {c.user_input for c in sets[name]} & {c.user_input for c in sets[other]}
+
+
+def test_k6_dataset_contains_every_load_test_prompt():
+    script = (ROOT / "platform/k6/test.js").read_text()
+    k6_inputs = {case.user_input for case in load_cases(ROOT / "evaluation/k6.json")}
+    prompts = [line.strip().rstrip(",").strip('"') for line in script.splitlines()
+               if line.strip().startswith('"') and ("@" in line or "al " in line)]
+    assert len(prompts) == 4 and set(prompts) <= k6_inputs
+
+
+async def test_anthropic_backend_separates_system_prompt_and_scores_empty_text(tmp_path, monkeypatch):
+    monkeypatch.setattr("evaluation.run.revision", lambda: "test-revision")
+    monkeypatch.setenv("TEST_ANTHROPIC_KEY", "secret")
+    original_client = httpx.AsyncClient
+    seen = []
+
+    def handler(request):
+        payload = json.loads(request.content)
+        seen.append((request.url.path, request.headers["x-api-key"], payload))
+        assert payload["system"] and [m["role"] for m in payload["messages"]] == ["user"]
+        assert payload["thinking"] == {"type": "disabled"} and "temperature" not in payload
+        if "luz@example.org" in payload["messages"][0]["content"]:
+            content = [{"type": "text", "text": json.dumps(positive_case().expected.model_dump())}]
+        else:
+            content = [{"type": "thinking", "thinking": ""}]  # no text block at all
+        return httpx.Response(200, json={"content": content, "stop_reason": "end_turn",
+                                        "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+    monkeypatch.setattr("evaluation.run.httpx.AsyncClient", lambda **kwargs:
+                        original_client(transport=httpx.MockTransport(handler), **kwargs))
+    args = run_args(tmp_path)
+    args.backend, args.base_url, args.api_key_env, args.repeats = "anthropic", None, "TEST_ANTHROPIC_KEY", 2
+    assert await run(args) == 0
+    report = json.loads(args.output.read_text())
+    assert report["expected_calls"] == len(report["results"]) == 4
+    assert report["summary"]["current"]["pipeline_correct"] == 4
+    assert "secret" not in args.output.read_text()
+    assert {path for path, _, _ in seen} == {"/v1/messages"}

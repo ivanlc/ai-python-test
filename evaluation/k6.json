@@ -1,0 +1,12 @@
+[
+  {"id":"k01","category":"k6_traffic","user_input":"Enviar email a juan@example.com diciendo que su paquete está en camino.","expected":{"to":"juan@example.com","message":"su paquete está en camino.","type":"email"}},
+  {"id":"k02","category":"k6_traffic","user_input":"Avisar por SMS al 600-111-222 que la reserva ha sido confirmada.","expected":{"to":"600-111-222","message":"la reserva ha sido confirmada.","type":"sms"}},
+  {"id":"k03","category":"k6_traffic","user_input":"Manda un correo a marta@app.com: Tienes un nuevo mensaje.","expected":{"to":"marta@app.com","message":"Tienes un nuevo mensaje.","type":"email"}},
+  {"id":"k04","category":"k6_traffic","user_input":"Recordatorio por teléfono al 699888777: cita a las 10:00","expected":{"to":"699888777","message":"cita a las 10:00","type":"sms"}},
+  {"id":"k05","category":"introducer","user_input":"Manda un SMS al 611-999-000 diciendo que el técnico llega a las 16:45.","expected":{"to":"611-999-000","message":"el técnico llega a las 16:45.","type":"sms"}},
+  {"id":"k06","category":"introducer","user_input":"Avisa a lucia@example.com que la factura ya está disponible.","expected":{"to":"lucia@example.com","message":"la factura ya está disponible.","type":"email"}},
+  {"id":"k07","category":"introducer","user_input":"Send a text to 612-345-678 saying that the doors open at 9.","expected":{"to":"612-345-678","message":"the doors open at 9.","type":"sms"}},
+  {"id":"k08","category":"introducer","user_input":"Escribe un email a ramon@example.org diciendo: Nos vemos el lunes a las 08:30.","expected":{"to":"ramon@example.org","message":"Nos vemos el lunes a las 08:30.","type":"email"}},
+  {"id":"k09","category":"missing_data","user_input":"Avisar por SMS que la reserva ha sido confirmada.","expected":null},
+  {"id":"k10","category":"missing_data","user_input":"Enviar email a juan@example.com diciendo que","expected":null}
+]

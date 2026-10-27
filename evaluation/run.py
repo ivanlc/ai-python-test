@@ -1,4 +1,4 @@
-"""Evaluate real Ollama completions and production guardrails independently."""
+"""Evaluate real model completions (Ollama or Anthropic) and production guardrails independently."""
 
 import argparse
 import asyncio
@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import random
 import re
@@ -23,6 +24,7 @@ from app.provider import SYSTEM_PROMPT
 
 
 ROOT = Path(__file__).resolve().parents[1]
+OLLAMA_URL = "http://127.0.0.1:11434"
 REFUSAL = re.compile(r"^(?:refused\b|i cannot\b|i can['’]t\b|unable to\b|lo siento\b|no puedo\b)", re.I)
 
 
@@ -124,7 +126,10 @@ def summarize(results: list[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def revision() -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    dirty = subprocess.check_output(["git", "status", "--porcelain", "--", "app", "evaluation/run.py"],
+                                    cwd=ROOT, text=True).strip()
+    return f"{head}-dirty" if dirty else head
 
 
 def guardrail_hash() -> str:
@@ -139,11 +144,86 @@ def write_report(path: Path, report: Dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+ANTHROPIC_URL = "https://api.anthropic.com"
+
+
+async def _complete_ollama(client: httpx.AsyncClient, args, system: str, user: str) -> Dict[str, Any]:
+    response = await client.post("/api/chat", json={
+        "model": args.model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "stream": False, "think": False, "keep_alive": "5m",
+        "options": {"temperature": 0, "seed": args.seed, "num_predict": 512, "num_ctx": 4096},
+    })
+    response.raise_for_status()
+    data = response.json()
+    content = data["message"]["content"]
+    if not isinstance(content, str) or data.get("done") is not True:
+        raise ValueError("Incomplete or invalid Ollama response")
+    return {"content": content, "done_reason": data.get("done_reason", "unknown"),
+            "prompt_tokens": data.get("prompt_eval_count"), "output_tokens": data.get("eval_count")}
+
+
+async def _complete_anthropic(client: httpx.AsyncClient, args, system: str, user: str) -> Dict[str, Any]:
+    # Same system/user separation as the challenge contract; no tools, prefill or JSON mode.
+    for attempt in range(4):
+        response = await client.post("/v1/messages", json={
+            "model": args.model, "max_tokens": 512, "system": system,
+            # Mirrors `think: false` for Ollama. With adaptive thinking enabled this
+            # model occasionally returned only a thinking block and no text.
+            "thinking": {"type": "disabled"},
+            "messages": [{"role": "user", "content": user}],
+        })
+        if response.status_code in (429, 500, 502, 503, 529) and attempt < 3:
+            await asyncio.sleep(float(response.headers.get("retry-after", 2 * 2 ** attempt)))
+            continue
+        break
+    response.raise_for_status()
+    data = response.json()
+    texts = [block["text"] for block in data["content"] if block.get("type") == "text"]
+    if len(texts) > 1:
+        raise ValueError("Expected at most one text block")
+    stop = data.get("stop_reason")
+    usage = data.get("usage", {})
+    # An empty answer is a model failure to score, not a transport failure.
+    return {"content": texts[0] if texts else "",
+            "done_reason": "stop" if stop in ("end_turn", "stop_sequence") else str(stop),
+            "prompt_tokens": usage.get("input_tokens"), "output_tokens": usage.get("output_tokens")}
+
+
+def _client(args) -> httpx.AsyncClient:
+    timeout = httpx.Timeout(connect=5, read=120, write=10, pool=5)
+    if getattr(args, "backend", "ollama") == "anthropic":
+        key = os.environ.get(args.api_key_env, "")
+        if not key:
+            raise SystemExit(f"Set {args.api_key_env} to use the Anthropic backend")
+        return httpx.AsyncClient(base_url=args.base_url or ANTHROPIC_URL, timeout=timeout,
+                                 headers={"x-api-key": key, "anthropic-version": "2023-06-01"})
+    return httpx.AsyncClient(base_url=args.base_url or OLLAMA_URL, timeout=timeout, trust_env=False)
+
+
+def _settings(args) -> Dict[str, Any]:
+    if getattr(args, "backend", "ollama") == "anthropic":
+        # This model family rejects `temperature`; repeats expose its variance instead.
+        return {"backend": "anthropic", "temperature": None, "max_tokens": 512, "thinking": "disabled",
+                "repeats": getattr(args, "repeats", 1), "concurrency": 1}
+    return {"backend": "ollama", "temperature": 0, "seed": args.seed, "num_predict": 512,
+            "num_ctx": 4096, "think": False, "stream": False, "format": None,
+            "repeats": getattr(args, "repeats", 1), "concurrency": 1}
+
+
 async def run(args) -> int:
     cases = load_cases(args.cases)
     prompts = {"current": SYSTEM_PROMPT}
     if args.include_baseline:
         prompts["baseline"] = (ROOT / "evaluation/baseline-prompt.txt").read_text().strip()
+    for spec in getattr(args, "prompt", None) or []:
+        name, _, path = spec.partition("=")
+        if not name or not path or name in prompts:
+            raise SystemExit(f"Invalid or duplicate --prompt {spec!r}; use NAME=PATH")
+        prompts[name] = Path(path).read_text().strip()
+    repeats = getattr(args, "repeats", 1)
+    backend = getattr(args, "backend", "ollama")
+    complete = _complete_anthropic if backend == "anthropic" else _complete_ollama
     order = cases.copy()
     random.Random(args.seed).shuffle(order)
     report = {
@@ -152,61 +232,52 @@ async def run(args) -> int:
         "source_revision": revision(),
         "baseline_source_revision": "ad2c1e8" if args.include_baseline else None,
         "guardrail_sha256": guardrail_hash(),
+        "dataset": str(args.cases.relative_to(ROOT) if args.cases.is_relative_to(ROOT) else args.cases),
         "dataset_sha256": hashlib.sha256(args.cases.read_bytes()).hexdigest(),
         "model": args.model,
-        "endpoint": args.base_url,
-        "settings": {"temperature": 0, "seed": args.seed, "num_predict": 512, "num_ctx": 4096,
-                     "think": False, "stream": False, "format": None, "concurrency": 1},
+        "endpoint": args.base_url or (ANTHROPIC_URL if backend == "anthropic" else OLLAMA_URL),
+        "settings": _settings(args),
         "prompts": {name: {"text": prompt, "sha256": hashlib.sha256(prompt.encode()).hexdigest()}
                     for name, prompt in prompts.items()},
         "cases": [case.model_dump() for case in cases],
-        "expected_calls": len(cases) * len(prompts),
+        "expected_calls": len(cases) * len(prompts) * repeats,
         "results": [],
     }
     write_report(args.output, report)
-    timeout = httpx.Timeout(connect=5, read=120, write=10, pool=5)
-    async with httpx.AsyncClient(base_url=args.base_url, timeout=timeout, trust_env=False) as client:
-        for index, case in enumerate(order):
-            arms = list(prompts)
-            if index % 2:
-                arms.reverse()
-            for arm in arms:
-                result = {"case_id": case.id, "category": case.category, "arm": arm}
-                start = time.monotonic()
-                try:
-                    response = await client.post("/api/chat", json={
-                        "model": args.model,
-                        "messages": [{"role": "system", "content": prompts[arm]},
-                                     {"role": "user", "content": case.user_input}],
-                        "stream": False, "think": False, "keep_alive": "5m",
-                        "options": {"temperature": 0, "seed": args.seed, "num_predict": 512,
-                                    "num_ctx": 4096},
-                    })
-                    response.raise_for_status()
-                    data = response.json()
-                    content = data["message"]["content"]
-                    if not isinstance(content, str) or data.get("done") is not True:
-                        raise ValueError("Incomplete or invalid Ollama response")
-                    result.update({
-                        "content": content,
-                        "done_reason": data.get("done_reason", "unknown"),
-                        "latency_seconds": round(time.monotonic() - start, 4),
-                        "prompt_tokens": data.get("prompt_eval_count"),
-                        "output_tokens": data.get("eval_count"),
-                        "score": score(case, content, data.get("done_reason", "unknown")),
-                    })
-                except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
-                    result["execution_error"] = f"{type(exc).__name__}: {exc}"
-                report["results"].append(result)
-                write_report(args.output, report)
-                print(f'{len(report["results"])}/{report["expected_calls"]} {arm} {case.id} '
-                      f'raw={result.get("score", {}).get("raw_correct")} '
-                      f'pipeline={result.get("score", {}).get("pipeline_correct")}', flush=True)
-                if "execution_error" in result:
-                    report["status"] = "aborted"
-                    report["finished_at"] = datetime.now(timezone.utc).isoformat()
+    async with _client(args) as client:
+        for repeat in range(repeats):
+            for index, case in enumerate(order):
+                arms = list(prompts)
+                # Rotate arm order so no prompt is always first.
+                shift = (index + repeat) % len(arms)
+                arms = arms[shift:] + arms[:shift]
+                for arm in arms:
+                    result = {"case_id": case.id, "category": case.category, "arm": arm}
+                    if repeats > 1:
+                        result["repeat"] = repeat
+                    start = time.monotonic()
+                    try:
+                        completion = await complete(client, args, prompts[arm], case.user_input)
+                        result.update({
+                            "content": completion["content"],
+                            "done_reason": completion["done_reason"],
+                            "latency_seconds": round(time.monotonic() - start, 4),
+                            "prompt_tokens": completion["prompt_tokens"],
+                            "output_tokens": completion["output_tokens"],
+                            "score": score(case, completion["content"], completion["done_reason"]),
+                        })
+                    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+                        result["execution_error"] = f"{type(exc).__name__}: {exc}"
+                    report["results"].append(result)
                     write_report(args.output, report)
-                    return 1
+                    print(f'{len(report["results"])}/{report["expected_calls"]} {arm} {case.id} '
+                          f'raw={result.get("score", {}).get("raw_correct")} '
+                          f'pipeline={result.get("score", {}).get("pipeline_correct")}', flush=True)
+                    if "execution_error" in result:
+                        report["status"] = "aborted"
+                        report["finished_at"] = datetime.now(timezone.utc).isoformat()
+                        write_report(args.output, report)
+                        return 1
     report["status"] = "complete"
     report["finished_at"] = datetime.now(timezone.utc).isoformat()
     write_report(args.output, report)
@@ -229,7 +300,13 @@ def rescore(source: Path, output: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
-    parser.add_argument("--base-url", default="http://127.0.0.1:11434")
+    parser.add_argument("--backend", choices=("ollama", "anthropic"), default="ollama")
+    parser.add_argument("--base-url", help="Defaults to local Ollama or the Anthropic API")
+    parser.add_argument("--api-key-env", default="ANTHROPIC_API_KEY",
+                        help="Environment variable holding the API key (never a CLI value)")
+    parser.add_argument("--prompt", action="append", metavar="NAME=PATH",
+                        help="Additional system prompt arm to compare")
+    parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--cases", type=Path, default=ROOT / "evaluation/cases.json")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--include-baseline", action="store_true")
