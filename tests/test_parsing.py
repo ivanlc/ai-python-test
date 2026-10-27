@@ -155,3 +155,57 @@ def test_partial_model_message_is_not_sent_when_full_body_is_explicit(message):
     content = json.dumps({"to": "699888777", "message": message, "type": "sms"})
     with pytest.raises(ExtractionError, match="complete explicit body"):
         extract_notification(content, "Recordatorio por teléfono al 699888777: cita a las 10:00")
+
+
+@pytest.mark.parametrize("body", [
+    "El pedido 987654321 está listo.",
+    "El contacto de soporte es soporte@example.net.",
+    "No uses foo@bar@example.net como dirección.",
+    "Contacta por WhatsApp si tienes dudas.",
+])
+def test_contacts_and_channel_names_in_explicit_body_are_only_content(body):
+    content = json.dumps({"to": "juan@example.com", "message": body, "type": "email"})
+    assert extract_notification(content, f"Envía email a juan@example.com: {body}").message == body
+
+
+@pytest.mark.parametrize("description", ["un mensaje bonito.", "algún texto breve.", "a message of support."])
+def test_body_description_is_not_treated_as_literal_message(description):
+    content = json.dumps({"to": "juan@example.com", "message": description, "type": "email"})
+    with pytest.raises(ExtractionError, match="description"):
+        extract_notification(content, f"Envía email a juan@example.com con {description}")
+
+
+@pytest.mark.parametrize("source", [
+    "Envía email a juan@example.com: un mensaje bonito.",
+    "Envía email a juan@example.com diciendo un mensaje bonito.",
+    'Envía email a juan@example.com con el texto "un mensaje bonito."',
+])
+def test_explicit_literal_can_contain_description_words(source):
+    content = json.dumps({"to": "juan@example.com", "message": "un mensaje bonito.", "type": "email"})
+    assert extract_notification(content, source).message == "un mensaje bonito."
+
+
+def test_entire_command_is_not_a_missing_message_fallback():
+    source = "Envía email a juan@example.com."
+    content = json.dumps({"to": "juan@example.com", "message": source, "type": "email"})
+    with pytest.raises(ExtractionError, match="command"):
+        extract_notification(content, source)
+
+
+def test_unsupported_channel_is_not_silently_changed_to_sms():
+    content = json.dumps({"to": "611222333", "message": "Hola.", "type": "sms"})
+    with pytest.raises(ExtractionError, match="unsupported"):
+        extract_notification(content, "Manda un WhatsApp al 611222333: Hola.")
+
+
+def test_an_address_in_the_body_cannot_replace_the_intended_recipient():
+    body = "Escribe a soporte@example.net si tienes dudas."
+    content = json.dumps({"to": "soporte@example.net", "message": body, "type": "email"})
+    with pytest.raises(ExtractionError, match="Recipient"):
+        extract_notification(content, f"Envía email a juan@example.com: {body}")
+
+
+def test_missing_recipient_uses_instruction_not_contact_inside_body():
+    body = "El soporte es soporte@example.net."
+    content = json.dumps({"message": body, "type": "email"})
+    assert extract_notification(content, f"Envía email a juan@example.com: {body}").to == "juan@example.com"

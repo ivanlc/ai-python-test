@@ -22,6 +22,9 @@ PHONE_RE = re.compile(r"[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}")
 PHONE_SOURCE_RE = re.compile(r"(?<![\w+-])[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}(?![\w-])")
 EMAIL_CHANNEL_RE = re.compile(r"\b(?:e-?mail|correo)\b", re.IGNORECASE)
 SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono)\b", re.IGNORECASE)
+UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:whats\s*app|telegram|slack|fax|push)\b", re.IGNORECASE)
+BODY_DESCRIPTION_RE = re.compile(r"^(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
+BODY_INTRODUCER_RE = re.compile(r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
 REFUSAL_RE = re.compile(
     r"\b(?:refused|refusal|i cannot|i can['’]t|unable to|lo siento|no puedo|no tengo permitido)\b|\berror\s*:",
     re.IGNORECASE,
@@ -148,12 +151,29 @@ def _email_key(address: str) -> Optional[str]:
         return None
 
 
-def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
-    """Ground the recipient in the request and require a coherent channel."""
-    emails: Dict[str, str] = {}
-    recipient_ends: List[int] = []
+def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str]]:
+    """Separate a recipient-adjacent colon before inspecting contacts in the body."""
+    contacts = []
     masked = list(user_input)
     for match in CONTACT_TOKEN_RE.finditer(user_input):
+        if "@" in match.group(0):
+            contacts.append((match.start(), match.end()))
+            masked[match.start():match.end()] = " " * (match.end() - match.start())
+    contacts.extend((match.start(), match.end())
+                    for match in PHONE_SOURCE_RE.finditer("".join(masked)))
+    for _, end in sorted(contacts):
+        remainder = user_input[end:].lstrip()
+        if remainder.startswith(":"):
+            return user_input[:end], remainder[1:].strip()
+    return user_input, None
+
+
+def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
+    """Ground the recipient in the request and require a coherent channel."""
+    intent_input, explicit_body = _split_explicit_body(user_input)
+    emails: Dict[str, str] = {}
+    masked = list(intent_input)
+    for match in CONTACT_TOKEN_RE.finditer(intent_input):
         if "@" not in match.group(0):
             continue
         address = match.group(0).rstrip(".!?")
@@ -161,13 +181,11 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         if key is None:
             raise ExtractionError("The request contains an invalid email address")
         emails[key] = address
-        recipient_ends.append(match.end())
         masked[match.start():match.end()] = " " * (match.end() - match.start())
     # Digits in an email local part are not a second phone recipient.
     without_emails = "".join(masked)
     phone_matches = list(PHONE_SOURCE_RE.finditer(without_emails))
     phones = {match.group(0).replace("-", ""): match.group(0) for match in phone_matches}
-    recipient_ends.extend(match.end() for match in phone_matches)
     if len(emails) + len(phones) != 1:
         raise ExtractionError("A unique recipient is not present in the request")
 
@@ -185,14 +203,23 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         raise ExtractionError("Message is absent or oversized")
     if message.casefold() not in user_input.casefold():
         raise ExtractionError("Message is not grounded in the request")
-    after_recipient = user_input[min(recipient_ends):].lstrip()
-    if after_recipient.startswith(":"):
-        explicit_body = after_recipient[1:].strip()
+    if message.casefold() == user_input.strip().casefold():
+        raise ExtractionError("Message is the command rather than its body")
+    if explicit_body is not None:
         if message.casefold() != explicit_body.casefold():
             raise ExtractionError("Message does not match the complete explicit body")
+    elif BODY_DESCRIPTION_RE.match(message):
+        quoted = any(f"{opening}{message}{closing}" in user_input
+                     for opening, closing in [('"', '"'), ("'", "'"), ("«", "»")])
+        introduced = any(user_input[match.end():].strip().casefold() == message.casefold()
+                         for match in BODY_INTRODUCER_RE.finditer(user_input))
+        if not (quoted or introduced):
+            raise ExtractionError("Message is a description rather than explicit content")
     expected_channel = "email" if email else "sms"
     channel = fields.get("type", expected_channel).casefold()
     instruction = without_emails.split(":", 1)[0]
+    if UNSUPPORTED_CHANNEL_RE.search(instruction):
+        raise ExtractionError("Requested channel is unsupported")
     requested = set()
     if EMAIL_CHANNEL_RE.search(instruction):
         requested.add("email")

@@ -4,7 +4,7 @@ import json
 import httpx
 import pytest
 
-from evaluation.run import Case, ROOT, load_cases, run, score, summarize
+from evaluation.run import Case, ROOT, load_cases, rescore, run, score, summarize
 from app.models import Notification
 
 
@@ -123,3 +123,21 @@ async def test_runner_aborts_and_saves_transport_failure(tmp_path, monkeypatch):
     assert report["status"] == "aborted"
     assert len(report["results"]) == 1
     assert report["summary"]["current"]["execution_errors"] == 1
+
+
+def test_rescoring_preserves_generation_evidence(tmp_path, monkeypatch):
+    case = positive_case()
+    original = {"source_revision": "original-generation", "prompts": {"current": "unchanged"},
+                "dataset_sha256": "original-dataset", "cases": [case.model_dump()],
+                "results": [{"case_id": case.id, "arm": "current", "done_reason": "stop",
+                             "content": json.dumps(case.expected.model_dump()), "latency_seconds": 1}]}
+    source, target = tmp_path / "original.json", tmp_path / "rescored.json"
+    source.write_text(json.dumps(original))
+    monkeypatch.setattr("evaluation.run.revision", lambda: "new-validation")
+    rescore(source, target)
+    updated = json.loads(target.read_text())
+    assert updated["results"][0]["content"] == original["results"][0]["content"]
+    assert updated["source_revision"] == original["source_revision"]
+    assert updated["prompts"] == original["prompts"]
+    assert updated["dataset_sha256"] == original["dataset_sha256"]
+    assert updated["rescoring"]["source_revision"] == "new-validation"
