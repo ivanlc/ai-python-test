@@ -8,7 +8,7 @@ Application commit `ea145c8`, macOS ARM64, Python 3.12.14, Docker Desktop. Local
 
 | Check | Executed result |
 | --- | --- |
-| `pytest -q` on host and inside the application image | 213 passed in each environment |
+| `pytest -q` on host and inside the application image | 215 passed in each environment |
 | `ruff check app evaluation tests`, `mypy app evaluation` | clean on host and in the image |
 | Final Compose smoke | 20/20 jobs terminal; all 10 extractable jobs sent, no truncated-command job sent; [output](delivery/smoke.txt) |
 | Original k6 stages, 50 → 150 → 200 users | 2,749 iterations; 8,247 HTTP requests; 19,243/19,243 checks passed |
