@@ -1,17 +1,25 @@
 {
-  "application_revision": "this commit (see git log)",
+  "application_revision": "1d08718 and later (pre-flight, re-ask, deadline, breakers)",
   "measured_after": "queue fully drained after the supplied k6 run",
-  "created_requests": 2749,
-  "terminal_outcomes": {
-    "sent": 1235,
-    "failed": 1514
+  "k6_requests": 2749,
+  "k6_terminal_outcomes": {"sent": 1374, "failed": 1375},
+  "container_totals_including_20_smoke_jobs": {
+    "jobs": 2769,
+    "sent": {"email": 703, "sms": 681},
+    "failed": {
+      "Message includes the command or recipient rather than only its body": 1244,
+      "Model refused the request": 141
+    },
+    "re_asks": {
+      "after command-text output": 1225,
+      "after free-text refusal": 278
+    },
+    "ai_extract_calls": 4272,
+    "provider_notify_http_200": 1384,
+    "provider_notify_http_429": 0,
+    "unexpected_exceptions": 0,
+    "circuit_breaker_openings": 0,
+    "deadline_expirations": 0
   },
-  "sent_by_channel": {"email": 621, "sms": 614},
-  "failure_reasons": {
-    "Message includes the command or recipient rather than only its body": 1241,
-    "Model refused the request": 273
-  },
-  "provider_notify_http_200": 1235,
-  "provider_notify_http_429": 19,
-  "unexpected_exceptions": 0
+  "note": "The smoke test ran on the same container just before k6 and sent exactly 10 of its 20 jobs (5 email, 5 SMS); k6-only sent/failed subtract them."
 }

@@ -19,7 +19,7 @@ python -m evaluation.run --backend anthropic --model claude-haiku-5-5 \
   --cases evaluation/holdout2.json --output evaluation/results/my-run.json
 ```
 
-`--prompt NAME=PATH` adds a comparison arm (repeatable); `--include-baseline` adds the first prompt from commit `ad2c1e8`. The `current` arm is always imported from `app.provider`. `--repeats N` runs every case N times, useful for models whose temperature cannot be fixed. `--base-url` overrides the backend default. An existing result file is never overwritten, and the API key is not written to reports.
+`--prompt NAME=PATH` adds a comparison arm (repeatable); `--include-baseline` adds the first prompt from commit `ad2c1e8`. The `current` arm is always imported from `app.provider`. `--repeats N` runs every case N times, useful for models whose temperature cannot be fixed. `--reask` mirrors the service: when the guardrails reject off-protocol output for a request that passes the pre-flight, the case is asked once more with the fixed reason, and `pipeline_correct_with_reask` / `incorrect_acceptance_with_reask` are reported next to the single-call scores. `--base-url` overrides the backend default. An existing result file is never overwritten, and the API key is not written to reports.
 
 Datasets:
 
