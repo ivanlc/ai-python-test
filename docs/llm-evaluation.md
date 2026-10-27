@@ -7,17 +7,18 @@ The challenge mock ignores the system prompt, so prompts were measured against r
 | Model | Access | Settings | Scored calls |
 | --- | --- | --- | ---: |
 | Claude Haiku 5.5 | Anthropic API | thinking off; temperature not configurable, so **3 repeats per case** | 1,263 |
-| Qwen 3.5 4B (`q4_K_M`) | local Ollama | temperature 0, seed 42, thinking off | 100 |
+| Qwen 3.5 4B (`q4_K_M`), historical | local Ollama | temperature 0, seed 42, thinking off | 100 |
+| Qwen 3.5 4B (`q4_K_M`), final delivery run | local Ollama | same settings, 3 repeats, one format re-ask | 270 initial calls + 3 re-asks |
 
-Prompts: `baseline` (first version, [text](../evaluation/baseline-prompt.txt)), `previous` (until `ce94604`, [text](../evaluation/previous-prompt.txt)) and `current` ([text](../app/ai/prompts/extraction_system.txt)).
+Prompts: `baseline` (first version, [text](../evaluation/baseline-prompt.txt)), `previous` (until `ce94604`, [text](../evaluation/previous-prompt.txt)) and `current` ([text](../app/ai/prompts/extraction_system.txt)). Each report embeds its exact prompt and hash: the historical Haiku `current` predates the delivery run's JSON-intent clarification and WhatsApp policy.
 
-Datasets: `cases.json` (40), `holdout.json` (20), `k6.json` (10: the four k6 prompts plus connector variants) and `holdout2.json` (20, written and frozen **before** the current prompt was first run). Each has valid intents and cases that must be refused.
+Datasets: `cases.json` (40), `holdout.json` (20), `k6.json` (10: the four k6 prompts plus connector variants) and `holdout2.json` (20, written and frozen **before** the historical v3 prompt was first run). These sets are regression data for subsequent changes. The main set's `n11` expected result was corrected to SMS to follow the explicitly approved WhatsApp-to-phone product policy; all inputs and all other expected results are unchanged. Historical reports retain their original oracle.
 
 Metrics: **raw correct** means exact JSON with the exact body, or a bare refusal. **Pipeline correct** means the guardrails accept exactly the expected notification or reject a case that must be refused. An **incorrect acceptance** is an output the guardrails would let through with a wrong payload; it is the safety metric.
 
 ## Results with Claude Haiku 5.5
 
-Pipeline-correct decisions, final guardrails, 3 repeats per case:
+Historical pipeline-correct decisions, guardrails as of `5d87dcf`, 3 repeats per case:
 
 | Dataset | baseline | previous | current |
 | --- | ---: | ---: | ---: |
@@ -39,7 +40,7 @@ What `current` fixed, from the `previous` failures:
 
 ## Results with Qwen 3.5 4B
 
-`baseline` and `previous` only (the model was not available for the latest prompt). Outputs re-scored with the final guardrails:
+Historical `baseline` and `previous` outputs, re-scored with the guardrails from `5d87dcf`:
 
 | | baseline (40) | previous (40) | previous, holdout (20) |
 | --- | ---: | ---: | ---: |
@@ -48,6 +49,24 @@ What `current` fixed, from the `previous` failures:
 | Incorrect acceptances, original → final | 3 → 0 | 1 → 0 | 1 → 0 |
 
 The remaining failure dropped the second line of a multi-line body; the guardrail rejects the partial body.
+
+### Final local delivery check, 2026-10-27
+
+Fresh inference with the shipped prompt and guardrails, `qwen3.5:4b-q4_K_M` (Ollama model digest prefix `d8b0f5e9760c`), 3 repeats of each of 90 cases:
+
+| Dataset | Raw correct | Pipeline correct | Incorrect acceptance | Re-asks |
+| --- | ---: | ---: | ---: | ---: |
+| main | 96/120 | 120/120 | 0 | 0 |
+| holdout | 54/60 | 60/60 | 0 | 0 |
+| k6 | 27/30 | 30/30 | 0 | 0 |
+| holdout2 | 42/60 | 57/60 | 0 | 3 |
+| **Total** | **219/270 (81.1%)** | **267/270 (98.9%)** | **0** | **3** |
+
+There were no inference transport errors. Initial-call medians were 0.59–0.62 s, p95 0.69–0.81 s. The only remaining miss is `q06`, repeated three times: the model produces malformed JSON around a single-quoted body, repeats it after the format re-ask, and the pipeline rejects it without sending. This is a model failure, not an incorrect acceptance. A protocol refusal is still never re-asked. Fixed seeds and temperature make these repeats a reproducibility check, not 270 independent observations.
+
+The local review found real gaps before this final run. `qwen3.5-4b-delivery-discovery.json` records a copied JSON instruction accepted as intent and an unwanted WhatsApp refusal. After the first corrections, `qwen3.5-4b-delivery-before-connectors-*.json` exposed six incorrect acceptances that retained `que` in the message. The final guardrails distinguish a recipient inside structured data from a notification instruction, establish full body boundaries after known recipient-adjacent connectors, and remove only a source connector preceding the complete body. Unit regressions also reject partial bodies after connectors. These discovery reports are preserved; their results are not included in the final-run totals.
+
+The evaluator calls the model even for requests the pre-flight would reject, to expose model behavior. In the application those requests consume no AI call. The guardrails therefore matter separately from raw model correctness; the final `n14` injection is blocked even though Qwen still copies its JSON.
 
 ## Limits
 
@@ -63,3 +82,5 @@ All reports in `evaluation/results/` keep prompt texts and hashes, dataset hash,
 | Haiku, baseline vs previous | `claude-haiku-5-5-{main,holdout,k6}.json` |
 | Haiku, previous vs current | `claude-haiku-5-5-prompt-v3-{main,holdout,k6,holdout2}.json` |
 | Haiku, current with re-ask | `claude-haiku-5-5-reask-{main,holdout,k6,holdout2}.json` |
+| Qwen, delivery discovery and intermediate | `qwen3.5-4b-delivery-discovery.json`, `qwen3.5-4b-delivery-before-connectors-*.json` |
+| Qwen, final delivery | `qwen3.5-4b-delivery-{main,holdout,k6,holdout2}.json` |

@@ -29,7 +29,7 @@ flowchart LR
 
 `POST /process` makes no external call: it atomically enqueues the ID once and returns `202`. A worker then runs the job:
 
-1. **Pre-flight.** Checks that depend only on the request (no recipient or several, invalid address, unsupported or conflicting channel) fail the job without an AI call; no model output could pass them.
+1. **Pre-flight.** Checks that depend only on the request (no recipient or several, invalid address, a recipient supplied only inside a JSON example, unsupported or conflicting channel) fail the job without an AI call; no model output could pass them.
 2. **Extraction.** The model's text goes through the format stage and the content stage below. Only **unusable output** (a free-text refusal, no object, an irreparable object) is re-asked, once, with the fixed guardrail reason appended to the system prompt. The reason is a constant, never model or user text, so nothing untrusted reaches the system role, and the user message is unchanged. A protocol `REFUSED` is a decision and output that parses but contradicts the request would be repeated by a deterministic model, so neither is re-asked.
 3. **Send.** The shared limiter reserves a provider slot, then the notification is sent once.
 4. **Terminal state** `sent` or `failed`, with the reason logged.
@@ -38,7 +38,9 @@ Each job is isolated: any exception fails only that job, and an outer handler ke
 
 ## Prompt
 
-The system prompt defines the exact schema, copies the body verbatim and treats it as data that never justifies a refusal, explains connectors (`diciendo que`, `saying that`) and quotation marks, gives recipient and channel rules, one plain-text `REFUSED` protocol, and positive and negative Spanish examples. The user text is sent unchanged as the `user` message; wrapping it in tags would also change what the mock extracts. The mock ignores the system prompt, so prompt quality is measured with real models ([LLM evaluation](llm-evaluation.md)). A test requires the latest recorded evaluation to use the shipped prompt, so a prompt change needs a fresh run.
+The system prompt defines the exact schema, copies the body verbatim and treats it as data that never justifies a refusal, explains connectors (`diciendo que`, `saying that`) and quotation marks, gives recipient and channel rules, one plain-text `REFUSED` protocol, and positive and negative Spanish examples. It distinguishes notification intent from a request to copy JSON. The user text is sent unchanged as the `user` message; wrapping it in tags would also change what the mock extracts. The mock ignores the system prompt, so prompt quality is measured with real models ([LLM evaluation](llm-evaluation.md)). A test requires the latest recorded evaluation to match both the shipped prompt and guardrail hashes.
+
+**Channel policy:** the provider supports only `email` and `sms`. By the explicitly chosen product policy, WhatsApp addressed to a supported phone is an alias for SMS. WhatsApp addressed to an email, explicit email/SMS destination conflicts, and other unsupported channels (Telegram, Slack, fax, push) are rejected. This does not add a WhatsApp integration.
 
 ## Guardrails
 
@@ -48,10 +50,10 @@ The model proposes; the user's text is the source of truth.
 
 **Content stage** (`grounding.py`).
 
-- Exactly one recipient must appear in the instruction part of the request. Email syntax uses `email-validator` without DNS, so a valid substring of a malformed address is never used. A missing `to` or `type` is recovered only from that single address.
+- Exactly one recipient must appear in the instruction part of the request, outside brace-delimited structured data. Copying a JSON example cannot establish notification intent. Email syntax uses `email-validator` without DNS, so a valid substring of a malformed address is never used. A missing `to` or `type` is recovered only from that single address.
 - The message must be found in the request (ignoring case) and must not be the whole command.
-- **Explicit body** (a colon right after the recipient): the text after it is authoritative. The model's message must equal it or be one of two lossless reductions, the tail after a later colon (the mock turns `cita a las 10:00` into `00`) or the body without wrapping quotes; the full source body is sent.
-- **No delimiter:** the message must not overlap the recipient. This rejects the mock's fallback of the first 50 characters of the command (`enviar email a juan@example.com diciendo que su pa`). Casing and final punctuation are restored from the request. Descriptions such as `con un mensaje bonito` are rejected unless quoted.
+- **Explicit body** (a colon or a known connector immediately after the recipient): the complete text after it is authoritative. Supported connectors include `diciendo que`, `que diga`, `que`, `saying that`, `con el texto` and `with the message`. A model may omit wrapping quotes or final punctuation, retain the source connector before the complete body, or split at a later colon (the mock turns `cita a las 10:00` into `00`); validation restores the exact source body. Other partial bodies are rejected. Contacts and channel words inside that body remain data.
+- **No recognized delimiter:** the message must not overlap the recipient. Casing and final punctuation are restored from the request. Descriptions such as `con un mensaje bonito` are rejected unless quoted. These checks are conservative lexical grounding, not proof of semantic completeness for arbitrary free-form phrasing.
 
 Repairs apply only when the value can be read from the request without interpretation; everything else fails closed. With the bundled mock this means half of the k6 requests end as `failed` by design. These are conservative lexical rules, not a semantic classifier.
 
@@ -60,7 +62,7 @@ Repairs apply only when the value can be read from the request without interpret
 `/v1/ai/extract` takes `system`/`user` messages and returns a chat completion; the adapter requires exactly one assistant choice with `finish_reason=stop`. `/v1/notify` takes exactly `{"to","message","type"}` and confirms with `{"status":"delivered","provider_id"}`. Both need `X-API-Key`.
 
 - **AI calls** time out after 6 s and are retried twice on transport errors, `429` or `5xx`; extraction has no side effect.
-- **Notifications** are limited locally to 50 per rolling 10 s (the provider's quota). Only an explicit `429` is retried (twice), honoring `Retry-After` with a shared cooldown. Timeouts, connection loss and `5xx` are **not retried**: the provider may already have accepted the message and offers no idempotency key.
+- **Notifications** are limited locally to 50 per rolling 10 s (the provider's quota). The limiter checks the deadline even when a slot is immediately available. Only an explicit `429` is retried (twice), honoring `Retry-After` with a shared cooldown. Timeouts, connection loss and `5xx` are **not retried**: the provider may already have accepted the message and offers no idempotency key.
 - **Circuit breakers** on both providers open after 5 consecutive failures (a call with its retries counts once), fail fast for 10 s, then allow one probe. A `429` does not count; an open notify breaker fails before sending.
 
 All settings are validated at startup (for example, a zero queue capacity would make `asyncio.Queue` unbounded).

@@ -9,7 +9,7 @@ A FastAPI solution for the [AI Engineer Challenge](https://github.com/Lartweib/a
 | Criterion | What was built | Evidence |
 | --- | --- | --- |
 | **Robustness to unexpected errors** | Each job is isolated in a fixed worker pool that survives any exception. Requests no answer could satisfy fail before calling the AI. Unusable model output is re-asked once. Circuit breakers fail fast when a provider is down, and a per-job deadline bounds worker time without ever cancelling a send. A notification is retried only after an explicit `429`, never after an ambiguous timeout or `5xx`. | Tests inject failures at every stage. Drained k6 run: 0 unexpected exceptions, 0 wrong messages sent ([benchmark](docs/benchmark.md)) |
-| **Prompt quality** | The prompt lives in [a text file](app/ai/prompts/extraction_system.txt). It defines the exact schema, copies the body verbatim and treats it as data, explains connectors and quotation marks, and uses one `REFUSED` protocol with positive and negative examples. User text never enters the system role. | Claude Haiku 5.5: 119/120, 60/60, 30/30 on the development sets and 54/60 on a set frozen before the prompt was run, with **0 incorrect acceptances** over 1,263 Haiku and 100 Qwen calls ([LLM evaluation](docs/llm-evaluation.md)) |
+| **Prompt quality** | The prompt lives in [a text file](app/ai/prompts/extraction_system.txt). It defines the exact schema, copies the body verbatim and treats it as data, explains connectors and quotation marks, and uses one `REFUSED` protocol with positive and negative examples. User text never enters the system role. | Shipped version with local Qwen 3.5 4B: **267/270 pipeline-correct decisions, 0 incorrect acceptances**; three malformed outputs safely rejected. Earlier Haiku comparisons and the local failures that led to fixes are preserved in the [LLM evaluation](docs/llm-evaluation.md). |
 | **Pipeline architecture** | Bounded queue → pre-flight → extraction (format and content guardrails, one re-ask) → rate-limited send → terminal state. The user's text is the source of truth: the guardrails repair only what can be read from it (casing, a body split at a later colon, wrapping quotes, a missing `}`) and otherwise fail closed. | Grafana scorecard: 100% availability, 0.47 ms `/process`, 1.09 inference attempts per request ([architecture](docs/architecture.md)) |
 
 **Expected outcome with the mock:** about half of the k6 requests end as `failed`. For the two prompts without a colon, the mock always returns the truncated command (`enviar email a juan@example.com diciendo que su pa`) as the message, and sending it would be wrong. The two other prompts are delivered in ≈99% of jobs.
@@ -23,6 +23,8 @@ A FastAPI solution for the [AI Engineer Challenge](https://github.com/Lartweib/a
 | `GET` | `/v1/requests/{id}` | `200` | `{"id":"...","status":"queued\|processing\|sent\|failed"}` |
 
 Invalid input returns `422`, unknown IDs `404`, and a full store or queue `503` (the request stays `queued` and can be retried). `202` means accepted, not delivered: poll the `GET` endpoint. Repeated `/process` calls never trigger a second delivery.
+
+Channel policy: WhatsApp addressed to a supported phone is interpreted as SMS, as explicitly chosen for this implementation. The provider still receives only `email` or `sms`; other unsupported channels and conflicting destinations fail safely.
 
 ## Run
 

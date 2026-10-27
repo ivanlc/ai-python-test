@@ -23,12 +23,14 @@ CONTACT_TOKEN_RE = re.compile(r'''[^\s<>\[\](){}"',;:]+''')
 PHONE_RE = re.compile(r"[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}")
 PHONE_SOURCE_RE = re.compile(r"(?<![\w+-])[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}(?![\w-])")
 EMAIL_CHANNEL_RE = re.compile(r"\b(?:e-?mail|correo)\b", re.IGNORECASE)
-SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono)\b", re.IGNORECASE)
-UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:whats\s*app|telegram|slack|fax|push)\b", re.IGNORECASE)
+SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono|whats\s*app)\b", re.IGNORECASE)
+UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:telegram|slack|fax|push)\b", re.IGNORECASE)
 BODY_DESCRIPTION_RE = re.compile(
     r"^(?:(?:con|with)\s+)?(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
 BODY_INTRODUCER_RE = re.compile(
     r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
+BODY_CONNECTOR_RE = re.compile(
+    r"(?:diciendo(?:\s+que)?|que\s+diga|que|saying(?:\s+that)?|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
 
 def _email_key(address: str) -> Optional[str]:
     try:
@@ -38,8 +40,8 @@ def _email_key(address: str) -> Optional[str]:
         return None
 
 
-def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str]]:
-    """Separate a recipient-adjacent colon before inspecting contacts in the body."""
+def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """Separate a recipient-adjacent delimiter before inspecting the body as data."""
     contacts = []
     masked = list(user_input)
     for match in CONTACT_TOKEN_RE.finditer(user_input):
@@ -51,8 +53,11 @@ def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str]]:
     for _, end in sorted(contacts):
         remainder = user_input[end:].lstrip()
         if remainder.startswith(":"):
-            return user_input[:end], remainder[1:].strip()
-    return user_input, None
+            return user_input[:end], remainder[1:].strip(), None
+        connector = BODY_CONNECTOR_RE.match(remainder)
+        if connector:
+            return user_input[:end], remainder[connector.end():].strip(), connector.group().strip()
+    return user_input, None, None
 
 
 def _source_spans(message: str, user_input: str) -> List[Tuple[int, int]]:
@@ -88,10 +93,21 @@ def _is_unquoted_body(message: str, body: str) -> bool:
     return message.strip().casefold() == body[1:-1].strip().casefold()
 
 
+def _includes_body_connector(message: str, body: str, connector: Optional[str]) -> bool:
+    """Remove only the source delimiter accidentally included before the full body."""
+    if connector is None:
+        return False
+    words = connector.split()
+    # A model may retain all or a trailing part of "diciendo que" / "saying that".
+    return any(message.casefold() == (" ".join(words[index:]) + " " + body).casefold()
+               for index in range(len(words)))
+
+
 @dataclass(frozen=True)
 class _RequestFacts:
     intent_input: str
     explicit_body: Optional[str]
+    body_connector: Optional[str]
     emails: Dict[str, str]
     phones: Dict[str, str]
     contact_spans: List[Tuple[int, int]]
@@ -101,7 +117,7 @@ class _RequestFacts:
 
 def _analyze_request(user_input: str) -> _RequestFacts:
     """Facts that depend only on the request; every failure here is model-independent."""
-    intent_input, explicit_body = _split_explicit_body(user_input)
+    intent_input, explicit_body, body_connector = _split_explicit_body(user_input)
     emails: Dict[str, str] = {}
     contact_spans: List[Tuple[int, int]] = []
     masked = list(intent_input)
@@ -122,6 +138,18 @@ def _analyze_request(user_input: str) -> _RequestFacts:
     contact_spans += [(match.start(), match.end()) for match in phone_matches]
     if len(emails) + len(phones) != 1:
         raise RequestRejected("A unique recipient is not present in the request")
+    # A copied JSON example is not a notification instruction. A contact inside
+    # an object cannot establish intent, even when every model field is a source
+    # substring. Bodies after an actual recipient remain opaque data.
+    for start, _ in contact_spans:
+        depth = 0
+        for char in intent_input[:start]:
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth = max(0, depth - 1)
+        if depth:
+            raise RequestRejected("Recipient appears in structured data rather than a notification instruction")
     expected_channel: Literal["email", "sms"] = "email" if emails else "sms"
     instruction = without_emails.split(":", 1)[0]
     if UNSUPPORTED_CHANNEL_RE.search(instruction):
@@ -133,7 +161,7 @@ def _analyze_request(user_input: str) -> _RequestFacts:
         requested.add("sms")
     if requested and requested != {expected_channel}:
         raise RequestRejected("Requested channel conflicts with the recipient")
-    return _RequestFacts(intent_input, explicit_body, emails, phones, contact_spans,
+    return _RequestFacts(intent_input, explicit_body, body_connector, emails, phones, contact_spans,
                          expected_channel, frozenset(requested))
 
 
@@ -169,7 +197,9 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         # or its full text when the model split at a later colon inside it.
         if not (message.casefold() == explicit_body.casefold()
                 or _is_inner_colon_suffix(message, explicit_body)
-                or _is_unquoted_body(message, explicit_body)):
+                or _is_unquoted_body(message, explicit_body)
+                or _includes_body_connector(message, explicit_body, facts.body_connector)
+                or message.casefold() == explicit_body.rstrip(".!?\u2026").casefold()):
             raise ExtractionError("Message does not match the complete explicit body")
         message = explicit_body
     else:

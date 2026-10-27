@@ -88,6 +88,8 @@ class SlidingWindowLimiter:
         while True:
             async with self._lock:
                 now = time.monotonic()
+                if deadline is not None and now >= deadline:
+                    raise ProviderError("Job deadline expired before a send slot")
                 while self._timestamps and self._timestamps[0] <= now - self.window_seconds:
                     self._timestamps.popleft()
                 wait = max(0.0, self._blocked_until - now)

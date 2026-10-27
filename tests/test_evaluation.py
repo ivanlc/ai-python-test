@@ -16,7 +16,7 @@ def test_evaluator_requires_the_complete_expected_payload():
     case = positive_case()
     correct = score(case, json.dumps(case.expected.model_dump()))
     assert correct["raw_correct"] and correct["pipeline_correct"]
-    wrong = score(case, '{"to":"luz@example.org","message":"Hola","type":"email"}')
+    wrong = score(case, '{"to":"luz@example.org","message":"Ho","type":"email"}')
     assert not wrong["raw_correct"] and not wrong["pipeline_correct"]
     assert wrong["model_error_blocked"]
     assert not wrong["guardrail_false_rejection"]
@@ -69,7 +69,8 @@ def test_summary_keeps_execution_errors_in_the_denominator():
 def test_dataset_is_frozen_with_unique_positive_and_negative_cases():
     cases = load_cases(ROOT / "evaluation/cases.json")
     assert len(cases) == 40
-    assert sum(case.expected is not None for case in cases) == 24
+    # n11 follows the explicitly approved WhatsApp-to-SMS product policy.
+    assert sum(case.expected is not None for case in cases) == 25
     assert len({case.id for case in cases}) == len(cases)
 
 

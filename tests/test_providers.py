@@ -354,10 +354,20 @@ async def test_limiter_fails_before_sending_when_the_deadline_would_pass():
         await limiter.acquire(deadline=time.monotonic() + 1)
 
 
+async def test_expired_job_cannot_send_even_when_a_slot_is_available(monkeypatch):
+    monkeypatch.setattr("app.providers.resilience.time.monotonic", lambda: 100.0)
+    limiter = SlidingWindowLimiter(limit=1, window_seconds=10)
+    with pytest.raises(ProviderError, match="deadline expired"):
+        await limiter.acquire(deadline=100.0)
+    # The expired job did not consume the available slot.
+    await limiter.acquire(deadline=101.0)
+
+
 def test_prompt_files_load_and_match_the_evaluated_prompt():
     from pathlib import Path
     import hashlib
     from app.ai.prompts import SYSTEM_PROMPT_SHA256, retry_instructions
+    from evaluation.run import guardrail_hash
 
     assert SYSTEM_PROMPT.startswith("You are a strict notification intent extractor.")
     assert retry_instructions("Model refused the request").startswith("\n\nRETRY\n")
@@ -366,5 +376,7 @@ def test_prompt_files_load_and_match_the_evaluated_prompt():
     # A prompt change must come with a fresh real-model run: the latest recorded
     # evaluation has to be for exactly the prompt that ships.
     root = Path(__file__).resolve().parents[1]
-    latest = json.loads((root / "evaluation/results/claude-haiku-5-5-reask-holdout2.json").read_text())
+    latest = json.loads((root / "evaluation/results/qwen3.5-4b-delivery-main.json").read_text())
+    assert latest["status"] == "complete"
     assert latest["prompts"]["current"]["sha256"] == SYSTEM_PROMPT_SHA256
+    assert latest["guardrail_sha256"] == guardrail_hash()
