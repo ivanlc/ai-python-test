@@ -65,6 +65,8 @@ This is a **single-process, in-memory** implementation. A restart loses IDs and 
 
 `pytest -q` covers HTTP contracts and OpenAPI, transitions, concurrent idempotency, simulator variants, unsafe/ambiguous outputs, invalid recipients, provider failures and cooldowns, configuration, concurrency, and overload. The original k6 scripts are untouched. Recorded results and environment notes are in [benchmark](docs/benchmark.md).
 
+The [quality criteria review](docs/quality-review.md) explains the prompt design, failure isolation, pipeline trade-offs, and the limits of evaluating prompt quality with a simulator that ignores system instructions.
+
 ## License
 
 The original [Apache 2.0 license](LICENSE) remains in place.

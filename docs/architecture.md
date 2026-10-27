@@ -23,7 +23,7 @@ One lock protects short updates to the request dictionary and queue acceptance. 
 
 `POST /v1/ai/extract` receives `{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."}]}` and requires `X-API-Key`. Its response is a chat completion with `choices[0].message.content`. The adapter requires one assistant choice completed with `finish_reason=stop`; multiple choices, a different role, or an interrupted completion fail validation. That content is untrusted text. `POST /v1/notify` receives exactly `{"to":"...","message":"...","type":"email|sms"}` with the same header; a confirmed response contains `{"status":"delivered","provider_id":"..."}`. These shapes come from `provider/app.py`.
 
-The system prompt requests one JSON object with an explicit recipient, message, and channel, refuses ambiguous cases, and tells the model to treat the user request as data. The mock ignores the system prompt for extraction but the prompt remains important for a real model and human evaluation.
+The system prompt defines an exact success schema, complete body copying, recipient/channel rules, one plain-text refusal format, and positive/negative Spanish examples. User content is explicitly treated as untrusted data. The mock ignores the system prompt for extraction, so prompt quality is assessed qualitatively; it is not empirically established by k6. See the [quality criteria review](quality-review.md) for evidence and evaluation limits.
 
 ## Guardrails
 
@@ -32,6 +32,8 @@ The system prompt requests one JSON object with an explicit recipient, message, 
 3. **Validate:** require a nonempty message copied from the original request, exactly one recipient present in that request, and an `email` or `sms` channel matching that recipient. Email syntax is checked with `email-validator`, with DNS checks disabled; this dependency avoids treating a valid substring of a malformed address as a destination. Digits inside an email are excluded from phone detection. Phone numbers follow the simulator's supported format of 9–10 ASCII digits, optionally grouped with hyphens. When `to` is omitted, use only the single address explicitly present in the user's text. When `type` is omitted, derive it only from the validated address format. Explicit blank values fail. Clear English/Spanish channel cues before the first colon must agree with the recipient; ambiguous instructions fail conservatively. Reject missing or invented messages, model refusals, malformed/truncated output, conflicting channels, and ungrounded recipients. Never call `/v1/notify` after validation fails.
 
 The simulator sometimes returns an incomplete object or a refusal. Those requests intentionally become `failed`; “100% sent” would require unsafe guessing or changing the provider.
+
+When a colon immediately follows the recipient, the full following text is an explicit body. The validator rejects a partial model message even if that fragment occurs in the request. This catches the mock's last-colon truncation of `cita a las 10:00` into `00`. Without an explicit delimiter, grounding is checked but semantic completeness still depends on extraction.
 
 ## Timeouts, retries, and rate limiting
 

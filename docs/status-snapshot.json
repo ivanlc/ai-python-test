@@ -1,13 +1,18 @@
 {
-  "sample_started_at": "2026-10-27T12:45:33.659238+00:00",
-  "sample_duration_seconds": 4.818,
-  "sampled_records": 2741,
+  "application_revision": "766e4bc",
+  "sample_started_at": "2026-10-27T13:01:46.994159+00:00",
+  "sample_duration_seconds": 4.658,
+  "sampled_records": 2749,
   "statuses": {
-    "failed": 61,
-    "sent": 379,
+    "sent": 525,
+    "failed": 273,
     "processing": 32,
-    "queued": 2269
+    "queued": 1919
   },
-  "provider_notify_http_200": 379,
-  "provider_notify_http_429": 2
+  "provider_notify_http_200": 543,
+  "provider_notify_http_429": 1,
+  "failure_reasons_at_sample_end": {
+    "Expected exactly one complete object": 114,
+    "Message does not match the complete explicit body": 170
+  }
 }
