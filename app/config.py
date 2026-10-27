@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 import math
 import os
+from typing import Any, Dict
 from urllib.parse import urlsplit
 
 
@@ -20,6 +21,10 @@ class Settings:
     notify_timeout_seconds: float = 3.0
     ai_retries: int = 2
     notify_429_retries: int = 2
+    extraction_retries: int = 1
+    job_timeout_seconds: float = 60.0
+    breaker_failure_threshold: int = 5
+    breaker_cooldown_seconds: float = 10.0
 
     def __post_init__(self) -> None:
         url = urlsplit(self.provider_base_url)
@@ -28,19 +33,20 @@ class Settings:
         if not self.provider_api_key.strip():
             raise ValueError("PROVIDER_API_KEY cannot be empty")
         capacities = (self.worker_count, self.queue_capacity, self.max_records,
-                      self.record_ttl_seconds, self.notify_limit)
+                      self.record_ttl_seconds, self.notify_limit, self.breaker_failure_threshold)
         if any(type(value) is not int or value <= 0 for value in capacities):
             raise ValueError("Capacity and lifetime settings must be positive integers")
-        durations = (self.notify_window_seconds, self.ai_timeout_seconds, self.notify_timeout_seconds)
+        durations = (self.notify_window_seconds, self.ai_timeout_seconds, self.notify_timeout_seconds,
+                     self.job_timeout_seconds, self.breaker_cooldown_seconds)
         if any(not math.isfinite(value) or value <= 0 for value in durations):
             raise ValueError("Timeout and rate window settings must be positive and finite")
         if any(type(value) is not int or value < 0
-               for value in (self.ai_retries, self.notify_429_retries)):
+               for value in (self.ai_retries, self.notify_429_retries, self.extraction_retries)):
             raise ValueError("Retry counts must be nonnegative integers")
 
     @classmethod
     def from_env(cls) -> "Settings":
-        values = {
+        values: Dict[str, Any] = {
             "provider_base_url": os.getenv("PROVIDER_BASE_URL", cls.provider_base_url),
             "provider_api_key": os.getenv("PROVIDER_API_KEY", cls.provider_api_key),
             "worker_count": int(os.getenv("WORKER_COUNT", cls.worker_count)),
@@ -53,5 +59,11 @@ class Settings:
             "notify_timeout_seconds": float(os.getenv("NOTIFY_TIMEOUT_SECONDS", cls.notify_timeout_seconds)),
             "ai_retries": int(os.getenv("AI_RETRIES", cls.ai_retries)),
             "notify_429_retries": int(os.getenv("NOTIFY_429_RETRIES", cls.notify_429_retries)),
+            "extraction_retries": int(os.getenv("EXTRACTION_RETRIES", cls.extraction_retries)),
+            "job_timeout_seconds": float(os.getenv("JOB_TIMEOUT_SECONDS", cls.job_timeout_seconds)),
+            "breaker_failure_threshold": int(os.getenv("BREAKER_FAILURE_THRESHOLD",
+                                                       cls.breaker_failure_threshold)),
+            "breaker_cooldown_seconds": float(os.getenv("BREAKER_COOLDOWN_SECONDS",
+                                                        cls.breaker_cooldown_seconds)),
         }
         return cls(**values)

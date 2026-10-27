@@ -12,6 +12,10 @@ from app.config import Settings
     {"notify_timeout_seconds": 0},
     {"provider_api_key": " "},
     {"provider_base_url": "http://"},
+    {"extraction_retries": -1},
+    {"job_timeout_seconds": 0},
+    {"breaker_failure_threshold": 0},
+    {"breaker_cooldown_seconds": float("inf")},
 ])
 def test_invalid_configuration_is_rejected_at_construction(overrides):
     with pytest.raises(ValueError):

@@ -7,7 +7,8 @@ import pytest
 
 from app.config import Settings
 from app.models import Notification
-from app.provider import HTTPProvider, ProviderError, SlidingWindowLimiter, SYSTEM_PROMPT, _retry_after
+from app.provider import (CircuitBreaker, CircuitOpenError, HTTPProvider, ProviderError,
+                          SlidingWindowLimiter, SYSTEM_PROMPT, _retry_after)
 
 
 def ai_response(content):
@@ -244,3 +245,109 @@ async def test_malformed_success_response_is_not_retried(operation, response):
             else:
                 await provider.notify(Notification(to="juan@example.com", message="hola", type="email"))
     assert len(attempts) == 1
+
+
+def mock_provider(handler, **overrides):
+    settings = Settings(**overrides)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url=settings.provider_base_url)
+    return client, HTTPProvider(client, settings)
+
+
+async def test_re_ask_appends_only_the_fixed_reason_to_the_system_prompt():
+    seen = []
+
+    def handler(request):
+        seen.append(json.loads(request.content)["messages"])
+        return httpx.Response(200, json=ai_response("REFUSED"))
+
+    client, provider = mock_provider(handler)
+    async with client:
+        await provider.extract("Email a juan@example.com: hola", feedback="Model refused the request")
+    system, user = seen[0]
+    assert system["content"].startswith(SYSTEM_PROMPT)
+    assert "rejected by validation: Model refused the request." in system["content"]
+    # The user message is unchanged, so the mock extracts exactly as on the first call.
+    assert user == {"role": "user", "content": "Email a juan@example.com: hola"}
+
+
+async def test_ai_circuit_opens_fails_fast_and_recovers_with_one_probe(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr("app.provider.time.monotonic", lambda: now[0])
+    healthy = False
+    calls = 0
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        if not healthy:
+            return httpx.Response(503)
+        return httpx.Response(200, json=ai_response("{}"))
+
+    client, provider = mock_provider(handler, ai_retries=0, breaker_failure_threshold=2,
+                                     breaker_cooldown_seconds=5)
+    async with client:
+        for _ in range(2):
+            with pytest.raises(ProviderError):
+                await provider.extract("x")
+        assert provider.ai_breaker.state == "open" and calls == 2
+        with pytest.raises(CircuitOpenError):
+            await provider.extract("x")
+        assert calls == 2  # failed fast, no request sent
+        now[0] += 5
+        assert provider.ai_breaker.state == "half-open"
+        with pytest.raises(ProviderError):
+            await provider.extract("x")  # failed probe re-opens the circuit
+        assert provider.ai_breaker.state == "open" and calls == 3
+        now[0] += 5
+        healthy = True
+        assert await provider.extract("x") == "{}"
+        assert provider.ai_breaker.state == "closed"
+
+
+def test_half_open_allows_a_single_probe_and_cancelled_probe_releases_it(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr("app.provider.time.monotonic", lambda: now[0])
+    breaker = CircuitBreaker("test", threshold=1, cooldown_seconds=1)
+    breaker.on_failure()
+    now[0] = 1.0
+    breaker.before_call()
+    with pytest.raises(CircuitOpenError):
+        breaker.before_call()
+    breaker.on_abort()
+    breaker.before_call()
+
+
+async def test_notify_429_does_not_open_the_circuit():
+    def handler(request):
+        return httpx.Response(429, headers={"Retry-After": "0"})
+
+    client, provider = mock_provider(handler, notify_429_retries=1, breaker_failure_threshold=1)
+    async with client:
+        with pytest.raises(ProviderError, match="rate limit"):
+            await provider.notify(Notification(to="a@example.com", message="hola", type="email"))
+    assert provider.notify_breaker.state == "closed"
+
+
+async def test_open_notify_circuit_does_not_send():
+    sent = 0
+
+    def handler(request):
+        nonlocal sent
+        sent += 1
+        return httpx.Response(500)
+
+    client, provider = mock_provider(handler, breaker_failure_threshold=1)
+    notification = Notification(to="a@example.com", message="hola", type="email")
+    async with client:
+        with pytest.raises(ProviderError):
+            await provider.notify(notification)
+        with pytest.raises(CircuitOpenError):
+            await provider.notify(notification)
+    assert sent == 1
+
+
+async def test_limiter_fails_before_sending_when_the_deadline_would_pass():
+    limiter = SlidingWindowLimiter(limit=1, window_seconds=10)
+    await limiter.acquire()
+    with pytest.raises(ProviderError, match="deadline"):
+        await limiter.acquire(deadline=time.monotonic() + 1)

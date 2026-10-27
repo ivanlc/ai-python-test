@@ -9,10 +9,14 @@ import time
 from typing import Deque, Literal, Optional
 
 import httpx
+import logging
 from pydantic import BaseModel, Field
 
 from .config import Settings
 from .models import Notification
+
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """You are a strict notification intent extractor.
@@ -73,8 +77,75 @@ User: Envia un SMS a ana@example.com: Hola.
 Output: REFUSED"""
 
 
+RETRY_INSTRUCTIONS = """
+
+RETRY
+Your previous answer to this same request was rejected by validation: {reason}.
+Apply the rules above again to the same user message. If the request really cannot
+be extracted without guessing, answer REFUSED again."""
+
+
 class ProviderError(RuntimeError):
     pass
+
+
+class _RateLimited(Exception):
+    """Internal signal: the provider declined this attempt with 429."""
+
+    def __init__(self, fatal_reason: Optional[str] = None) -> None:
+        super().__init__(fatal_reason)
+        self.fatal_reason = fatal_reason
+
+
+class CircuitOpenError(ProviderError):
+    """The dependency is failing; the call was not attempted."""
+
+
+class CircuitBreaker:
+    """Consecutive-failure breaker with a single half-open probe.
+
+    State changes contain no awaits, so they are atomic on the event loop.
+    """
+
+    def __init__(self, name: str, threshold: int, cooldown_seconds: float) -> None:
+        self.name = name
+        self.threshold = threshold
+        self.cooldown_seconds = cooldown_seconds
+        self._failures = 0
+        self._opened_at: Optional[float] = None
+        self._probing = False
+
+    @property
+    def state(self) -> str:
+        if self._opened_at is None:
+            return "closed"
+        if time.monotonic() - self._opened_at >= self.cooldown_seconds:
+            return "half-open"
+        return "open"
+
+    def before_call(self) -> None:
+        state = self.state
+        if state == "open" or (state == "half-open" and self._probing):
+            raise CircuitOpenError(f"{self.name} circuit is open")
+        if state == "half-open":
+            self._probing = True
+
+    def on_success(self) -> None:
+        self._failures = 0
+        self._opened_at = None
+        self._probing = False
+
+    def on_failure(self) -> None:
+        self._probing = False
+        self._failures += 1
+        if self._opened_at is not None or self._failures >= self.threshold:
+            if self._opened_at is None:
+                logger.error("%s circuit opened after %d consecutive failures", self.name, self._failures)
+            self._opened_at = time.monotonic()
+
+    def on_abort(self) -> None:
+        """A cancelled call proves nothing; let another probe run."""
+        self._probing = False
 
 
 class _ChatMessage(BaseModel):
@@ -111,7 +182,8 @@ class SlidingWindowLimiter:
         async with self._lock:
             self._blocked_until = max(self._blocked_until, time.monotonic() + seconds)
 
-    async def acquire(self) -> None:
+    async def acquire(self, deadline: Optional[float] = None) -> None:
+        """Reserve an attempt; fail before sending if the wait would pass `deadline`."""
         while True:
             async with self._lock:
                 now = time.monotonic()
@@ -123,6 +195,8 @@ class SlidingWindowLimiter:
                 if wait <= 0:
                     self._timestamps.append(now)
                     return
+                if deadline is not None and now + wait > deadline:
+                    raise ProviderError("Job deadline would expire before a send slot")
             await asyncio.sleep(wait + 0.01)
 
 
@@ -131,12 +205,36 @@ class HTTPProvider:
         self.client = client
         self.settings = settings
         self.limiter = SlidingWindowLimiter(settings.notify_limit, settings.notify_window_seconds)
+        self.ai_breaker = CircuitBreaker("AI provider", settings.breaker_failure_threshold,
+                                         settings.breaker_cooldown_seconds)
+        self.notify_breaker = CircuitBreaker("Notification provider", settings.breaker_failure_threshold,
+                                             settings.breaker_cooldown_seconds)
 
-    async def extract(self, user_input: str) -> str:
+    async def extract(self, user_input: str, feedback: Optional[str] = None) -> str:
+        """Call the AI once (with transport retries) behind the circuit breaker.
+
+        `feedback` is a fixed validation message, never model or user text, so it
+        can be appended to the system prompt without elevating untrusted data.
+        The user message is unchanged on a re-ask.
+        """
+        system = SYSTEM_PROMPT + (RETRY_INSTRUCTIONS.format(reason=feedback) if feedback else "")
         payload = {"messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": user_input},
         ]}
+        self.ai_breaker.before_call()
+        try:
+            content = await self._extract(payload)
+        except ProviderError:
+            self.ai_breaker.on_failure()
+            raise
+        except BaseException:
+            self.ai_breaker.on_abort()
+            raise
+        self.ai_breaker.on_success()
+        return content
+
+    async def _extract(self, payload: dict) -> str:
         for attempt in range(self.settings.ai_retries + 1):
             try:
                 response = await self.client.post(
@@ -159,34 +257,60 @@ class HTTPProvider:
                 raise ProviderError("AI response was invalid") from exc
         raise ProviderError("AI retries exhausted")
 
-    async def notify(self, notification: Notification) -> None:
-        # A timeout or 5xx may follow acceptance. Retrying could send twice.
+    async def notify(self, notification: Notification, deadline: Optional[float] = None) -> None:
+        """Send once; only an explicit 429 (a known non-delivery) is retried.
+
+        The deadline is only checked before a request is sent: an in-flight
+        notification is never cancelled, because its outcome would be unknown.
+        """
         for attempt in range(self.settings.notify_429_retries + 1):
-            await self.limiter.acquire()
+            await self.limiter.acquire(deadline)
+            self.notify_breaker.before_call()
             try:
-                response = await self.client.post(
-                    "/v1/notify", json=notification.model_dump(),
-                    timeout=self.settings.notify_timeout_seconds,
-                )
-            except httpx.RequestError as exc:
-                raise ProviderError("Notification outcome is unknown") from exc
-            if response.status_code == 429:
-                retry_after = _retry_after(response.headers.get("Retry-After"))
-                await self.limiter.defer(retry_after if retry_after is not None
-                                         else self.settings.notify_window_seconds)
+                await self._send(notification)
+            except _RateLimited as limited:
+                # The provider is up and declined explicitly; not a breaker failure.
+                self.notify_breaker.on_success()
+                if limited.fatal_reason:
+                    raise ProviderError(limited.fatal_reason) from None
                 if attempt < self.settings.notify_429_retries:
                     continue
-                # An explicit 429 means the provider declined: the outcome is known.
-                raise ProviderError("Notification rate limit retries exhausted")
-            try:
-                response.raise_for_status()
-                parsed = _NotificationResponse.model_validate(response.json())
-            except (httpx.HTTPStatusError, ValueError) as exc:
-                raise ProviderError("Notification was rejected or its outcome is unknown") from exc
-            if parsed.status != "delivered" or not parsed.provider_id:
-                raise ProviderError("Notification delivery was not confirmed")
+                raise ProviderError("Notification rate limit retries exhausted") from None
+            except ProviderError:
+                self.notify_breaker.on_failure()
+                raise
+            except BaseException:
+                self.notify_breaker.on_abort()
+                raise
+            self.notify_breaker.on_success()
             return
         raise AssertionError("unreachable: every attempt returns or raises")
+
+    async def _send(self, notification: Notification) -> None:
+        # A timeout or 5xx may follow acceptance. Retrying could send twice.
+        try:
+            response = await self.client.post(
+                "/v1/notify", json=notification.model_dump(),
+                timeout=self.settings.notify_timeout_seconds,
+            )
+        except httpx.RequestError as exc:
+            raise ProviderError("Notification outcome is unknown") from exc
+        if response.status_code == 429:
+            try:
+                retry_after = _retry_after(response.headers.get("Retry-After"))
+            except ProviderError as exc:
+                raise _RateLimited(str(exc)) from None
+            await self.limiter.defer(retry_after if retry_after is not None
+                                     else self.settings.notify_window_seconds)
+            # An explicit 429 means the provider declined: the outcome is known.
+            raise _RateLimited()
+        try:
+            response.raise_for_status()
+            parsed = _NotificationResponse.model_validate(response.json())
+        except (httpx.HTTPStatusError, ValueError) as exc:
+            raise ProviderError("Notification was rejected or its outcome is unknown") from exc
+        if parsed.status != "delivered" or not parsed.provider_id:
+            raise ProviderError("Notification delivery was not confirmed")
 
 
 def _retry_after(value: Optional[str]) -> Optional[float]:

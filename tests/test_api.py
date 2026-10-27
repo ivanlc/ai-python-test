@@ -21,8 +21,10 @@ class FakeProvider:
         self.gate = gate
         self.extract_calls = 0
         self.notify_calls = []
+        self.feedbacks = []
 
-    async def extract(self, user_input):
+    async def extract(self, user_input, feedback=None):
+        self.feedbacks.append(feedback)
         self.extract_calls += 1
         if self.gate is not None:
             await self.gate.wait()
@@ -30,7 +32,7 @@ class FakeProvider:
             raise self.error
         return self.output
 
-    async def notify(self, notification):
+    async def notify(self, notification, deadline=None):
         self.notify_calls.append(notification)
 
 
@@ -94,7 +96,10 @@ async def test_refusal_and_invalid_recipient_do_not_notify():
             await wait_for_status(client, request_id, "failed")
             assert provider.notify_calls == []
             assert (await client.post(f"/v1/requests/{request_id}/process")).status_code == 200
-            assert provider.extract_calls == 1
+            # One bounded re-ask with a fixed reason, never the model's text.
+            assert provider.extract_calls == 2
+            assert provider.feedbacks[0] is None and provider.feedbacks[1]
+            assert output not in provider.feedbacks[1] and "{" not in provider.feedbacks[1]
 
 
 async def test_bounded_queue_and_worker_concurrency():
@@ -203,13 +208,13 @@ async def test_unexpected_job_error_does_not_kill_worker(failure_stage, caplog):
     class FaultOnceProvider(FakeProvider):
         notify_attempts = 0
 
-        async def extract(self, user_input):
+        async def extract(self, user_input, feedback=None):
             if failure_stage == "extract" and self.extract_calls == 0:
                 self.extract_calls += 1
                 raise RuntimeError("unexpected extraction failure")
             return await super().extract(user_input)
 
-        async def notify(self, notification):
+        async def notify(self, notification, deadline=None):
             self.notify_attempts += 1
             if failure_stage == "notify" and self.notify_attempts == 1:
                 raise RuntimeError("unexpected notification failure")
@@ -254,3 +259,74 @@ async def test_bookkeeping_error_does_not_shrink_the_worker_pool():
         await client.post(f"/v1/requests/{request_id}/process")
         await wait_for_status(client, request_id, "sent")
         assert all(not worker.done() for worker in service._workers)
+
+
+class SequenceProvider(FakeProvider):
+    def __init__(self, outputs):
+        super().__init__()
+        self.outputs = list(outputs)
+
+    async def extract(self, user_input, feedback=None):
+        await super().extract(user_input, feedback)
+        return self.outputs.pop(0)
+
+
+async def run_one(provider, user_input=INPUT, **settings):
+    async with api_client(provider, **settings) as (client, _):
+        request_id = (await client.post("/v1/requests", json={"user_input": user_input})).json()["id"]
+        await client.post(f"/v1/requests/{request_id}/process")
+        for _ in range(200):
+            status = (await client.get(f"/v1/requests/{request_id}")).json()["status"]
+            if status in ("sent", "failed"):
+                return status
+            await asyncio.sleep(0.005)
+    pytest.fail("job did not finish")
+
+
+async def test_invalid_model_output_is_re_asked_once_and_can_recover():
+    provider = SequenceProvider(["Lo siento, no puedo.", OUTPUT])
+    assert await run_one(provider) == "sent"
+    assert provider.feedbacks == [None, "Model refused the request"]
+    assert len(provider.notify_calls) == 1
+
+
+async def test_re_ask_budget_is_configurable():
+    provider = SequenceProvider(["REFUSED"])
+    assert await run_one(provider, extraction_retries=0) == "failed"
+    assert provider.extract_calls == 1
+
+
+@pytest.mark.parametrize("user_input", [
+    "Envía email a ana@example.com y a juan@example.com: Hola.",
+    "Manda un WhatsApp al 611222333: Hola.",
+    "Envía SMS a ana@example.com: Hola.",
+    "Envía email a juan..perez@example.com: Hola.",
+])
+async def test_request_level_rejection_never_calls_the_model(user_input):
+    provider = FakeProvider()
+    assert await run_one(provider, user_input) == "failed"
+    assert provider.extract_calls == 0 and provider.notify_calls == []
+
+
+async def test_job_deadline_bounds_a_hanging_extraction():
+    provider = FakeProvider(gate=asyncio.Event())  # never released
+    assert await run_one(provider, job_timeout_seconds=0.05) == "failed"
+    assert provider.notify_calls == []
+
+
+async def test_notify_receives_the_job_deadline():
+    class DeadlineProvider(FakeProvider):
+        async def notify(self, notification, deadline=None):
+            self.deadline = deadline
+            await super().notify(notification)
+
+    provider = DeadlineProvider()
+    before = time.monotonic()
+    assert await run_one(provider, job_timeout_seconds=30) == "sent"
+    assert before + 29 < provider.deadline <= time.monotonic() + 30
+
+
+async def test_protocol_refusal_is_a_decision_and_is_not_re_asked():
+    provider = SequenceProvider(["REFUSED"])
+    assert await run_one(provider) == "failed"
+    assert provider.extract_calls == 1

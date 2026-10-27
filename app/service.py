@@ -4,12 +4,12 @@ import asyncio
 from dataclasses import dataclass
 import logging
 import time
-from typing import Dict, List, Protocol
+from typing import Dict, List, Optional, Protocol
 from uuid import uuid4
 
 from .config import Settings
 from .models import Notification, RequestStatus
-from .parsing import ExtractionError, extract_notification
+from .parsing import ExtractionError, ModelDeclined, RequestRejected, check_request, extract_notification
 from .provider import ProviderError
 
 
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class Provider(Protocol):
-    async def extract(self, user_input: str) -> str: ...
-    async def notify(self, notification: Notification) -> None: ...
+    async def extract(self, user_input: str, feedback: Optional[str] = None) -> str: ...
+    async def notify(self, notification: Notification, deadline: Optional[float] = None) -> None: ...
 
 
 class NotFoundError(LookupError):
@@ -110,10 +110,17 @@ class RequestService:
             record.status = RequestStatus.processing
             record.updated_at = time.monotonic()
             user_input = record.user_input
+        # The deadline bounds how long one job can occupy a worker. Extraction has
+        # no side effect and may be cancelled; a notification already sent is not.
+        deadline = time.monotonic() + self.settings.job_timeout_seconds
         try:
-            content = await self.provider.extract(user_input)
-            notification = extract_notification(content, user_input)
-            await self.provider.notify(notification)
+            check_request(user_input)
+            notification = await asyncio.wait_for(self._extract(request_id, user_input),
+                                                  self.settings.job_timeout_seconds)
+            await self.provider.notify(notification, deadline=deadline)
+        except asyncio.TimeoutError:
+            logger.warning("Request %s failed: job deadline expired during extraction", request_id)
+            terminal = RequestStatus.failed
         except (ExtractionError, ProviderError) as exc:
             logger.warning("Request %s failed: %s", request_id, exc)
             terminal = RequestStatus.failed
@@ -126,6 +133,29 @@ class RequestService:
         async with self._lock:
             record.status = terminal
             record.updated_at = time.monotonic()
+
+    async def _extract(self, request_id: str, user_input: str) -> Notification:
+        """Ask the model; re-ask a bounded number of times when its output fails validation.
+
+        Not retried: request-level rejections (no model output could pass them) and a
+        protocol refusal (`REFUSED`), which is a deliberate decision. Off-protocol
+        output, such as free-text refusals or malformed objects, is treated as noise.
+        The re-ask carries only the fixed validation reason, never model or user text.
+        """
+        feedback: Optional[str] = None
+        for attempt in range(self.settings.extraction_retries + 1):
+            content = await self.provider.extract(user_input, feedback)
+            try:
+                return extract_notification(content, user_input)
+            except (RequestRejected, ModelDeclined):
+                raise
+            except ExtractionError as exc:
+                if attempt == self.settings.extraction_retries:
+                    raise
+                feedback = str(exc)
+                logger.info("Request %s: re-asking the model after validation failure: %s",
+                            request_id, feedback)
+        raise AssertionError("unreachable")
 
     def _prune_expired(self) -> None:
         cutoff = time.monotonic() - self.settings.record_ttl_seconds
