@@ -379,4 +379,7 @@ def test_prompt_files_load_and_match_the_evaluated_prompt():
     latest = json.loads((root / "evaluation/results/qwen3.5-4b-delivery-main.json").read_text())
     assert latest["status"] == "complete"
     assert latest["prompts"]["current"]["sha256"] == SYSTEM_PROMPT_SHA256
-    assert latest["guardrail_sha256"] == guardrail_hash()
+    # Guardrail changes can be checked by re-scoring the saved outputs (the prompt,
+    # and therefore the generations, are unchanged); prompt changes cannot.
+    scored_with = latest.get("rescoring", {}).get("guardrail_sha256", latest["guardrail_sha256"])
+    assert scored_with == guardrail_hash()

@@ -194,9 +194,12 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         raise ExtractionError("Message is not grounded in the request")
     if explicit_body is not None:
         # The delimited source text is authoritative: restore its exact casing,
-        # or its full text when the model split at a later colon inside it.
+        # or its full text when the model split at a later colon inside it. That
+        # repair is limited to colon delimiters: after a connector such as "que",
+        # a later colon may end a relative clause ("a pedro@x.com que está de
+        # vacaciones: vuelve el lunes"), so the text before it is not the body.
         if not (message.casefold() == explicit_body.casefold()
-                or _is_inner_colon_suffix(message, explicit_body)
+                or (facts.body_connector is None and _is_inner_colon_suffix(message, explicit_body))
                 or _is_unquoted_body(message, explicit_body)
                 or _includes_body_connector(message, explicit_body, facts.body_connector)
                 or message.casefold() == explicit_body.rstrip(".!?\u2026").casefold()):

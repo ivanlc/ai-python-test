@@ -409,3 +409,15 @@ def test_json_is_allowed_in_the_body_after_a_real_recipient(connector, body):
     source = "Envía email a ana@example.com" + connector + body
     content = json.dumps({"to": "ana@example.com", "message": body, "type": "email"})
     assert extract_notification(content, source).message == body
+
+
+@pytest.mark.parametrize("source, model_message", [
+    ("Mándale un mail a pedro@example.com que está de vacaciones: vuelve el lunes.", "vuelve el lunes."),
+    ("Avisa a ana@example.com que es la responsable: la reunión es a las 10:00", "00"),
+])
+def test_connector_body_is_never_widened_across_a_later_colon(source, model_message):
+    # Before this guard the clause before the colon was sent as part of the message.
+    recipient = source.split(" a ")[1].split()[0]
+    content = json.dumps({"to": recipient, "message": model_message, "type": "email"})
+    with pytest.raises(ExtractionError, match="complete explicit body"):
+        extract_notification(content, source)
