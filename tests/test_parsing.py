@@ -168,11 +168,17 @@ def test_contacts_and_channel_names_in_explicit_body_are_only_content(body):
     assert extract_notification(content, f"Envía email a juan@example.com: {body}").message == body
 
 
-@pytest.mark.parametrize("description", ["un mensaje bonito.", "algún texto breve.", "a message of support."])
-def test_body_description_is_not_treated_as_literal_message(description):
+@pytest.mark.parametrize("description, source", [
+    ("un mensaje bonito.", "Envía email a juan@example.com con un mensaje bonito."),
+    ("algún texto breve.", "Envía email a juan@example.com con algún texto breve."),
+    ("a message of support.", "Send email to juan@example.com with a message of support."),
+    ("con un mensaje positivo.", "Envía email a juan@example.com con un mensaje positivo."),
+    ("with a message of support.", "Send email to juan@example.com with a message of support."),
+])
+def test_body_description_is_not_treated_as_literal_message(description, source):
     content = json.dumps({"to": "juan@example.com", "message": description, "type": "email"})
     with pytest.raises(ExtractionError, match="description"):
-        extract_notification(content, f"Envía email a juan@example.com con {description}")
+        extract_notification(content, source)
 
 
 @pytest.mark.parametrize("source", [
@@ -209,3 +215,9 @@ def test_missing_recipient_uses_instruction_not_contact_inside_body():
     body = "El soporte es soporte@example.net."
     content = json.dumps({"message": body, "type": "email"})
     assert extract_notification(content, f"Envía email a juan@example.com: {body}").to == "juan@example.com"
+
+
+def test_explicit_literal_body_may_start_with_a_description_connector():
+    body = "con un mensaje positivo."
+    content = json.dumps({"to": "juan@example.com", "message": body, "type": "email"})
+    assert extract_notification(content, f"Envía email a juan@example.com: {body}").message == body

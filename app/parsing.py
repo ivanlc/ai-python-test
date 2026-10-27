@@ -23,7 +23,7 @@ PHONE_SOURCE_RE = re.compile(r"(?<![\w+-])[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}(?![\w-]
 EMAIL_CHANNEL_RE = re.compile(r"\b(?:e-?mail|correo)\b", re.IGNORECASE)
 SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono)\b", re.IGNORECASE)
 UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:whats\s*app|telegram|slack|fax|push)\b", re.IGNORECASE)
-BODY_DESCRIPTION_RE = re.compile(r"^(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
+BODY_DESCRIPTION_RE = re.compile(r"^(?:(?:con|with)\s+)?(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
 BODY_INTRODUCER_RE = re.compile(r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
 REFUSAL_RE = re.compile(
     r"\b(?:refused|refusal|i cannot|i can['’]t|unable to|lo siento|no puedo|no tengo permitido)\b|\berror\s*:",
