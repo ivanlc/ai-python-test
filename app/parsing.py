@@ -1,11 +1,12 @@
 """Bounded parsing, normalization and validation of model output."""
 
 import ast
+from dataclasses import dataclass
 from io import StringIO
 import json
 import re
 import tokenize
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Literal, Optional, Tuple
 
 from email_validator import EmailNotValidError, validate_email
 
@@ -16,6 +17,14 @@ class ExtractionError(ValueError):
     """The model output cannot be trusted as a notification."""
 
 
+class RequestRejected(ExtractionError):
+    """The request itself cannot yield a notification, whatever the model returns."""
+
+
+class ModelDeclined(ExtractionError):
+    """The model followed the refusal protocol: a deliberate decision, not noise."""
+
+
 # Capture whole address tokens so a malformed address cannot yield a valid suffix.
 CONTACT_TOKEN_RE = re.compile(r'''[^\s<>\[\](){}"',;:]+''')
 PHONE_RE = re.compile(r"[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}")
@@ -23,8 +32,10 @@ PHONE_SOURCE_RE = re.compile(r"(?<![\w+-])[0-9]{3}-?[0-9]{3}-?[0-9]{3,4}(?![\w-]
 EMAIL_CHANNEL_RE = re.compile(r"\b(?:e-?mail|correo)\b", re.IGNORECASE)
 SMS_CHANNEL_RE = re.compile(r"\b(?:sms|tel[eé]fono)\b", re.IGNORECASE)
 UNSUPPORTED_CHANNEL_RE = re.compile(r"\b(?:whats\s*app|telegram|slack|fax|push)\b", re.IGNORECASE)
-BODY_DESCRIPTION_RE = re.compile(r"^(?:(?:con|with)\s+)?(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
-BODY_INTRODUCER_RE = re.compile(r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
+BODY_DESCRIPTION_RE = re.compile(
+    r"^(?:(?:con|with)\s+)?(?:un|una|alg[uú]n|alguna|a|some)\s+(?:mensaje|texto|message|text)\b", re.I)
+BODY_INTRODUCER_RE = re.compile(
+    r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
 REFUSAL_RE = re.compile(
     r"\b(?:refused|refusal|i cannot|i can['’]t|unable to|lo siento|no puedo|no tengo permitido)\b|\berror\s*:",
     re.IGNORECASE,
@@ -132,6 +143,8 @@ def parse_output(content: str) -> Dict[str, Any]:
     if not isinstance(content, str) or len(content) > 12000:
         raise ExtractionError("Model output is absent or oversized")
     if "{" not in content:
+        if content.strip().casefold() == "refused":
+            raise ModelDeclined("Model refused the request")
         if REFUSAL_RE.search(content):
             raise ExtractionError("Model refused the request")
         raise ExtractionError("Model output contains no object")
@@ -234,10 +247,22 @@ def _is_unquoted_body(message: str, body: str) -> bool:
     return message.strip().casefold() == body[1:-1].strip().casefold()
 
 
-def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
-    """Ground the recipient in the request and require a coherent channel."""
+@dataclass(frozen=True)
+class _RequestFacts:
+    intent_input: str
+    explicit_body: Optional[str]
+    emails: Dict[str, str]
+    phones: Dict[str, str]
+    contact_spans: List[Tuple[int, int]]
+    expected_channel: Literal["email", "sms"]
+    requested: FrozenSet[str]
+
+
+def _analyze_request(user_input: str) -> _RequestFacts:
+    """Facts that depend only on the request; every failure here is model-independent."""
     intent_input, explicit_body = _split_explicit_body(user_input)
     emails: Dict[str, str] = {}
+    contact_spans: List[Tuple[int, int]] = []
     masked = list(intent_input)
     for match in CONTACT_TOKEN_RE.finditer(intent_input):
         if "@" not in match.group(0):
@@ -245,22 +270,48 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
         address = match.group(0).rstrip(".!?")
         key = _email_key(address)
         if key is None:
-            raise ExtractionError("The request contains an invalid email address")
+            raise RequestRejected("The request contains an invalid email address")
         emails[key] = address
+        contact_spans.append((match.start(), match.end()))
         masked[match.start():match.end()] = " " * (match.end() - match.start())
     # Digits in an email local part are not a second phone recipient.
     without_emails = "".join(masked)
     phone_matches = list(PHONE_SOURCE_RE.finditer(without_emails))
     phones = {match.group(0).replace("-", ""): match.group(0) for match in phone_matches}
+    contact_spans += [(match.start(), match.end()) for match in phone_matches]
     if len(emails) + len(phones) != 1:
-        raise ExtractionError("A unique recipient is not present in the request")
+        raise RequestRejected("A unique recipient is not present in the request")
+    expected_channel: Literal["email", "sms"] = "email" if emails else "sms"
+    instruction = without_emails.split(":", 1)[0]
+    if UNSUPPORTED_CHANNEL_RE.search(instruction):
+        raise RequestRejected("Requested channel is unsupported")
+    requested = set()
+    if EMAIL_CHANNEL_RE.search(instruction):
+        requested.add("email")
+    if SMS_CHANNEL_RE.search(instruction):
+        requested.add("sms")
+    if requested and requested != {expected_channel}:
+        raise RequestRejected("Requested channel conflicts with the recipient")
+    return _RequestFacts(intent_input, explicit_body, emails, phones, contact_spans,
+                         expected_channel, frozenset(requested))
+
+
+def check_request(user_input: str) -> None:
+    """Pre-flight check: reject before calling the model when no output could pass."""
+    _analyze_request(user_input)
+
+
+def validate_notification(fields: Dict[str, str], user_input: str) -> Notification:
+    """Ground every field in the request; request-level failures raise RequestRejected."""
+    facts = _analyze_request(user_input)
+    explicit_body = facts.explicit_body
 
     recipient = fields.get("to")
     if recipient is None:
         # Recovery uses the sole address explicitly supplied by the user.
-        recipient = next(iter((emails or phones).values()))
-    email = _email_key(recipient) in emails
-    phone = bool(PHONE_RE.fullmatch(recipient)) and recipient.replace("-", "") in phones
+        recipient = next(iter((facts.emails or facts.phones).values()))
+    email = _email_key(recipient) in facts.emails
+    phone = bool(PHONE_RE.fullmatch(recipient)) and recipient.replace("-", "") in facts.phones
     if not (email or phone):
         raise ExtractionError("Recipient is invalid or absent from the request")
 
@@ -281,11 +332,8 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
             raise ExtractionError("Message does not match the complete explicit body")
         message = explicit_body
     else:
-        contact_spans = [(match.start(), match.end()) for match in CONTACT_TOKEN_RE.finditer(intent_input)
-                         if "@" in match.group(0)]
-        contact_spans += [(match.start(), match.end()) for match in phone_matches]
         body_spans = [(start, end) for start, end in spans
-                      if not any(start < c_end and c_start < end for c_start, c_end in contact_spans)]
+                      if not any(start < c_end and c_start < end for c_start, c_end in facts.contact_spans)]
         if not body_spans:
             raise ExtractionError("Message includes the command or recipient rather than only its body")
         # Grounding is case-insensitive; send the user's original casing, and keep
@@ -301,19 +349,10 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
                          for match in BODY_INTRODUCER_RE.finditer(user_input))
         if not (quoted or introduced):
             raise ExtractionError("Message is a description rather than explicit content")
-    expected_channel = "email" if email else "sms"
-    channel = fields.get("type", expected_channel).casefold()
-    instruction = without_emails.split(":", 1)[0]
-    if UNSUPPORTED_CHANNEL_RE.search(instruction):
-        raise ExtractionError("Requested channel is unsupported")
-    requested = set()
-    if EMAIL_CHANNEL_RE.search(instruction):
-        requested.add("email")
-    if SMS_CHANNEL_RE.search(instruction):
-        requested.add("sms")
-    if channel != expected_channel or (requested and requested != {channel}):
+    channel = fields.get("type", facts.expected_channel).casefold()
+    if channel != facts.expected_channel:
         raise ExtractionError("Channel conflicts with recipient")
-    return Notification(to=recipient, message=message, type=channel)
+    return Notification(to=recipient, message=message, type=facts.expected_channel)
 
 
 def extract_notification(content: str, user_input: str) -> Notification:

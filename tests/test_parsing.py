@@ -50,7 +50,8 @@ def test_simulator_variants(content, user_input, expected_to, expected_type):
     '{"to":"attacker@example.com","message":"su paquete","type":"email"}',
     '{"to":"juan@example.com","message":"su paquete","type":"sms"}',
     '{"to":"juan@example.com","recipient":"attacker@example.com","message":"su paquete","type":"email"}',
-    '{"to":"juan@example.com","message":"su paquete","type":"email"} {"to":"juan@example.com","message":"bye","type":"email"}',
+    '{"to":"juan@example.com","message":"su paquete","type":"email"} '
+    '{"to":"juan@example.com","message":"bye","type":"email"}',
     '{"to":"juan@example.com","message":null,"type":"email"}',
     '{"to":"juan@example.com","message":"paga 100 euros","type":"email"}',
 ])
@@ -326,3 +327,27 @@ def test_dropped_punctuation_is_not_restored_from_the_middle_of_a_request():
     source = "Envía email a juan@example.com diciendo hola. Gracias."
     content = json.dumps({"to": "juan@example.com", "message": "hola", "type": "email"})
     assert extract_notification(content, source).message == "hola"
+
+
+@pytest.mark.parametrize("source", [
+    "Envía email a ana@example.com y a juan@example.com: Hola.",
+    "Manda un WhatsApp al 611222333: Hola.",
+    "Envía SMS a ana@example.com: Hola.",
+    "Envía email a juan..perez@example.com: Hola.",
+    "Envía un email: Hola.",
+])
+def test_request_level_failures_are_classified_before_any_model_output(source):
+    from app.parsing import RequestRejected, check_request
+    with pytest.raises(RequestRejected):
+        check_request(source)
+    # The same classification applies whatever the model returns.
+    with pytest.raises(RequestRejected):
+        extract_notification('{"to":"ana@example.com","message":"Hola.","type":"email"}', source)
+
+
+def test_model_errors_are_not_classified_as_request_rejections():
+    from app.parsing import RequestRejected, check_request
+    check_request(EMAIL_INPUT)
+    with pytest.raises(ExtractionError) as info:
+        extract_notification("REFUSED", EMAIL_INPUT)
+    assert not isinstance(info.value, RequestRejected)
