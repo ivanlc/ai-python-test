@@ -1,6 +1,6 @@
 █ TOTAL RESULTS
 
-    checks_total.......: 19243   463.560001/s
+    checks_total.......: 19243   463.773265/s
     checks_succeeded...: 100.00% 19243 out of 19243
     checks_failed......: 0.00%   0 out of 19243
 
@@ -13,15 +13,15 @@
     ✓ status is valid string
 
     HTTP
-    http_req_duration..............: avg=870.39µs min=123.75µs med=653.62µs max=10.26ms p(90)=1.72ms p(95)=2.25ms
-      { expected_response:true }...: avg=870.39µs min=123.75µs med=653.62µs max=10.26ms p(90)=1.72ms p(95)=2.25ms
+    http_req_duration..............: avg=672.19µs min=120.7µs med=543.04µs max=8.46ms p(90)=1.23ms p(95)=1.61ms
+      { expected_response:true }...: avg=672.19µs min=120.7µs med=543.04µs max=8.46ms p(90)=1.23ms p(95)=1.61ms
     http_req_failed................: 0.00%  0 out of 8247
-    http_reqs......................: 8247   198.668572/s
+    http_reqs......................: 8247   198.759971/s
 
     EXECUTION
-    iteration_duration.............: avg=1.5s     min=1.5s     med=1.5s     max=1.52s   p(90)=1.51s  p(95)=1.51s
-    iterations.....................: 2749   66.222857/s
-    vus............................: 73     min=5         max=199
+    iteration_duration.............: avg=1.5s     min=1.5s    med=1.5s     max=1.51s  p(90)=1.5s   p(95)=1.5s
+    iterations.....................: 2749   66.253324/s
+    vus............................: 70     min=5         max=199
     vus_max........................: 200    min=200       max=200
 
     NETWORK

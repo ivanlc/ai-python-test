@@ -23,7 +23,7 @@ One lock protects short updates to the request dictionary and queue acceptance. 
 
 `POST /v1/ai/extract` receives `{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."}]}` and requires `X-API-Key`. Its response is a chat completion with `choices[0].message.content`. The adapter requires one assistant choice completed with `finish_reason=stop`; multiple choices, a different role, or an interrupted completion fail validation. That content is untrusted text. `POST /v1/notify` receives exactly `{"to":"...","message":"...","type":"email|sms"}` with the same header; a confirmed response contains `{"status":"delivered","provider_id":"..."}`. These shapes come from `provider/app.py`.
 
-The system prompt defines an exact success schema, complete body copying, recipient/channel rules, one plain-text refusal format, and positive/negative Spanish examples. User content is explicitly treated as untrusted data. The mock ignores the system prompt for extraction, so prompt quality is assessed qualitatively; it is not empirically established by k6. See the [quality criteria review](quality-review.md) for evidence and evaluation limits.
+The system prompt defines an exact success schema, complete body copying, recipient/channel rules, one plain-text refusal format, and positive/negative Spanish examples. User content is explicitly treated as untrusted data. The mock ignores the system prompt for extraction, so k6 does not evaluate prompting. A separate [real-model evaluation](llm-evaluation.md) records empirical Qwen results; see the [quality criteria review](quality-review.md) for their limits.
 
 ## Guardrails
 
@@ -34,6 +34,8 @@ The system prompt defines an exact success schema, complete body copying, recipi
 The simulator sometimes returns an incomplete object or a refusal. Those requests intentionally become `failed`; “100% sent” would require unsafe guessing or changing the provider.
 
 When a colon immediately follows the recipient, the full following text is an explicit body. The validator rejects a partial model message even if that fragment occurs in the request. This catches the mock's last-colon truncation of `cita a las 10:00` into `00`. Without an explicit delimiter, grounding is checked but semantic completeness still depends on extraction.
+
+For that explicit format, recipient resolution examines the instruction before the body. Contact addresses or order numbers in the body are treated as content and cannot replace the intended recipient. Entire command text, unprovided body descriptions, and known unsupported channels are rejected. Literal delimited or quoted text is preserved even when it contains instruction-like words. These conservative checks do not replace semantic evaluation of unrestricted natural language.
 
 ## Timeouts, retries, and rate limiting
 

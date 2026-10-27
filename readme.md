@@ -67,6 +67,8 @@ This is a **single-process, in-memory** implementation. A restart loses IDs and 
 
 The [quality criteria review](docs/quality-review.md) explains the prompt design, failure isolation, pipeline trade-offs, and the limits of evaluating prompt quality with a simulator that ignores system instructions.
 
+An optional [real-model evaluator](evaluation/README.md) compares prompts against local Ollama without sending notifications. The [executed Qwen evaluation](docs/llm-evaluation.md) includes 100 scored real-model calls, original failures, production guardrail fixes, and unchanged-output re-scoring.
+
 ## License
 
 The original [Apache 2.0 license](LICENSE) remains in place.

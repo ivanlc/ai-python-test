@@ -93,6 +93,7 @@ def run_args(tmp_path):
 
 
 async def test_runner_calls_only_the_model_and_preserves_evidence(tmp_path, monkeypatch):
+    monkeypatch.setattr("evaluation.run.revision", lambda: "test-revision")
     original_client = httpx.AsyncClient
     paths = []
 
@@ -119,6 +120,7 @@ async def test_runner_calls_only_the_model_and_preserves_evidence(tmp_path, monk
 
 
 async def test_runner_aborts_and_saves_transport_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr("evaluation.run.revision", lambda: "test-revision")
     original_client = httpx.AsyncClient
 
     def handler(request):
