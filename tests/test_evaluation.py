@@ -74,6 +74,15 @@ def test_dataset_is_frozen_with_unique_positive_and_negative_cases():
     assert len({case.id for case in cases}) == len(cases)
 
 
+def test_holdout_does_not_reuse_main_cases():
+    main = load_cases(ROOT / "evaluation/cases.json")
+    holdout = load_cases(ROOT / "evaluation/holdout.json")
+    assert len(holdout) == 20
+    assert sum(case.expected is not None for case in holdout) == 12
+    assert not {case.id for case in main} & {case.id for case in holdout}
+    assert not {case.user_input for case in main} & {case.user_input for case in holdout}
+
+
 def run_args(tmp_path):
     cases = [positive_case().model_dump(), {"id": "reject", "category": "missing",
              "user_input": "Manda un correo: Hola.", "expected": None}]
