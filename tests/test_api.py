@@ -242,3 +242,15 @@ async def test_shutdown_cancels_inflight_job_without_sending():
         assert provider.notify_calls == []
 
     await asyncio.wait_for(start_job_and_exit(), timeout=1)
+
+
+async def test_bookkeeping_error_does_not_shrink_the_worker_pool():
+    provider = FakeProvider()
+    async with api_client(provider, worker_count=1) as (client, service):
+        # Simulate an inconsistent queue entry; the single worker must survive it.
+        await service._queue.put("missing-id")
+        created = await client.post("/v1/requests", json={"user_input": INPUT})
+        request_id = created.json()["id"]
+        await client.post(f"/v1/requests/{request_id}/process")
+        await wait_for_status(client, request_id, "sent")
+        assert all(not worker.done() for worker in service._workers)

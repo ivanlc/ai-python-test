@@ -92,28 +92,40 @@ class RequestService:
         while True:
             request_id = await self._queue.get()
             try:
-                async with self._lock:
-                    record = self._records[request_id]
-                    record.status = RequestStatus.processing
-                    record.updated_at = time.monotonic()
-                    user_input = record.user_input
-                try:
-                    content = await self.provider.extract(user_input)
-                    notification = extract_notification(content, user_input)
-                    await self.provider.notify(notification)
-                except (ExtractionError, ProviderError) as exc:
-                    logger.warning("Request %s failed: %s", request_id, exc)
-                    terminal = RequestStatus.failed
-                except Exception:
-                    logger.exception("Unexpected processing failure for %s", request_id)
-                    terminal = RequestStatus.failed
-                else:
-                    terminal = RequestStatus.sent
-                async with self._lock:
-                    record.status = terminal
-                    record.updated_at = time.monotonic()
+                await self._process_one(request_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # Last line of defence: a bookkeeping bug must not shrink the pool.
+                logger.exception("Worker bookkeeping failed for %s", request_id)
             finally:
                 self._queue.task_done()
+
+    async def _process_one(self, request_id: str) -> None:
+        async with self._lock:
+            record = self._records.get(request_id)
+            if record is None:
+                logger.error("Queued request %s no longer exists", request_id)
+                return
+            record.status = RequestStatus.processing
+            record.updated_at = time.monotonic()
+            user_input = record.user_input
+        try:
+            content = await self.provider.extract(user_input)
+            notification = extract_notification(content, user_input)
+            await self.provider.notify(notification)
+        except (ExtractionError, ProviderError) as exc:
+            logger.warning("Request %s failed: %s", request_id, exc)
+            terminal = RequestStatus.failed
+        except Exception:
+            logger.exception("Unexpected processing failure for %s", request_id)
+            terminal = RequestStatus.failed
+        else:
+            logger.info("Request %s sent via %s", request_id, notification.type)
+            terminal = RequestStatus.sent
+        async with self._lock:
+            record.status = terminal
+            record.updated_at = time.monotonic()
 
     def _prune_expired(self) -> None:
         cutoff = time.monotonic() - self.settings.record_ttl_seconds

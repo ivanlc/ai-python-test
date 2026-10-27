@@ -166,6 +166,8 @@ class HTTPProvider:
                                          else self.settings.notify_window_seconds)
                 if attempt < self.settings.notify_429_retries:
                     continue
+                # An explicit 429 means the provider declined: the outcome is known.
+                raise ProviderError("Notification rate limit retries exhausted")
             try:
                 response.raise_for_status()
                 parsed = _NotificationResponse.model_validate(response.json())
@@ -174,7 +176,7 @@ class HTTPProvider:
             if parsed.status != "delivered" or not parsed.provider_id:
                 raise ProviderError("Notification delivery was not confirmed")
             return
-        raise ProviderError("Notification rate limit retries exhausted")
+        raise AssertionError("unreachable: every attempt returns or raises")
 
 
 def _retry_after(value: Optional[str]) -> Optional[float]:
