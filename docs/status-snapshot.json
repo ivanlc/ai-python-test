@@ -1,24 +1,24 @@
 {
-  "application_revision": "123859c",
+  "application_revision": "cc7a264",
   "measured_after": "queue fully drained after the supplied k6 run (fresh containers, no other traffic)",
-  "k6_requests": 2749,
-  "terminal_outcomes": {"sent": 1349, "failed": 1400},
-  "sent_by_channel": {"email": 706, "sms": 643},
+  "k6_requests": 2743,
+  "terminal_outcomes": {"sent": 1359, "failed": 1384},
+  "sent_by_channel": {"email": 659, "sms": 700},
   "failure_reasons": {
-    "Message does not match the complete explicit body": 1378,
-    "Model refused the request": 22
+    "Message does not match the complete explicit body": 1352,
+    "Model refused the request": 32
   },
-  "re_asks_after_unusable_output": 245,
-  "provider_notify_http_200": 1349,
-  "provider_notify_http_429": 2,
+  "re_asks_after_unusable_output": 253,
+  "provider_notify_http_200": 1359,
+  "provider_notify_http_429": 31,
   "unexpected_exceptions": 0,
   "circuit_breaker_openings": 0,
   "deadline_expirations": 0,
   "grafana_scorecard": {
     "availability_percent": 100,
-    "process_mean_latency_ms": 0.47,
+    "process_mean_latency_ms": 0.98,
     "max_vus": 199,
-    "inference_attempts_per_request": {"provider_hits_extract": 2994, "process_requests": 2749, "ratio": 1.09}
+    "inference_attempts_per_request": {"provider_hits_extract": 2996, "process_requests": 2743, "ratio": 1.09}
   },
   "prompt_sha256": "722ac159a76ebc92e3b42e5f0b056b4571d8c188b7f24053223355c6306a5eda"
 }
