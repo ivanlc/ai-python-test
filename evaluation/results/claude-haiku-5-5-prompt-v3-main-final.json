@@ -1668,7 +1668,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -1695,7 +1695,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -4012,7 +4012,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -4039,7 +4039,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -6356,7 +6356,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -6383,7 +6383,7 @@
         "incorrect_acceptance": false,
         "model_error_blocked": false,
         "guardrail_error": "Model refused the request",
-        "request_rejected": false,
+        "request_rejected": true,
         "model_declined": true,
         "format_error": false
       }
@@ -7426,9 +7426,9 @@
   "finished_at": "2026-10-27T16:57:32.242378+00:00",
   "arm_relabel_note": "Generated as arms 'current' (now 'previous') and 'candidate' (now the production 'current'); prompt texts and SHA-256 are unchanged.",
   "rescoring": {
-    "source_report": "evaluation/results/claude-haiku-5-5-prompt-v3-main.json",
-    "source_revision": "0c391baa8515f181d91c191efc0821f837587e14",
-    "guardrail_sha256": "b8d90f2c0b7597f4a5629d9bd29f4ae141fec3448b7cfffdabe2abc8668acf83",
-    "rescored_at": "2026-10-27T18:34:48.281185+00:00"
+    "source_report": "evaluation/results/claude-haiku-5-5-prompt-v3-main-final.json",
+    "source_revision": "7623d6aaa25199196c0e21c7666951b748f73ac8",
+    "guardrail_sha256": "7c41b44fed11e213848a6a43aac0dcc62e8a3cc136db3c7e36503e715be7fec4",
+    "rescored_at": "2026-10-28T08:13:06.755998+00:00"
   }
 }

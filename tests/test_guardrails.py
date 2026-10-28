@@ -104,8 +104,16 @@ def test_invalid_contact_cannot_be_recovered_as_a_valid_substring(source_recipie
 
 @pytest.mark.parametrize("recipient", ["juan@example.com", "user123456789@example.com"])
 def test_valid_email_with_sentence_punctuation(recipient):
+    # The sentence period after the address is not part of it.
     content = json.dumps({"to": recipient, "message": "hola", "type": "email"})
-    assert extract_notification(content, f"Enviar email: hola. Destino {recipient}.").to == recipient
+    assert extract_notification(content, f"Enviar email con 'hola'. Destino {recipient}.").to == recipient
+
+
+def test_unquoted_body_before_the_recipient_is_not_guessed():
+    # Without a delimiter or quotes, "hola" cannot be shown to be the whole body.
+    content = json.dumps({"to": "juan@example.com", "message": "hola", "type": "email"})
+    with pytest.raises(ExtractionError, match="no delimiter"):
+        extract_notification(content, "Enviar email: hola. Destino juan@example.com.")
 
 
 def test_repair_does_not_rewrite_bare_key_patterns_inside_message():
@@ -177,6 +185,11 @@ def test_contacts_and_channel_names_in_explicit_body_are_only_content(body):
 ])
 def test_body_description_is_not_treated_as_literal_message(description, source):
     content = json.dumps({"to": "juan@example.com", "message": description, "type": "email"})
+    with pytest.raises(ExtractionError, match="description|no delimiter"):
+        extract_notification(content, source)
+    # Even the complete text after the recipient is still only a description.
+    tail = source.split("juan@example.com ", 1)[1]
+    content = json.dumps({"to": "juan@example.com", "message": tail, "type": "email"})
     with pytest.raises(ExtractionError, match="description"):
         extract_notification(content, source)
 
@@ -418,3 +431,85 @@ def test_connector_body_is_never_widened_across_a_later_colon(source, model_mess
     content = json.dumps({"to": recipient, "message": model_message, "type": "email"})
     with pytest.raises(ExtractionError, match="complete explicit body"):
         extract_notification(content, source)
+
+
+
+# --- Requests without a recognised delimiter right after the recipient -------------
+
+@pytest.mark.parametrize("source, recipient, fragment", [
+    # The mock splits at the last colon of a time.
+    ("Escribe un email a ramon@example.org diciendo: Nos vemos el lunes a las 08:30.", "ramon@example.org", "lunes"),
+    ("Envía un SMS al 611222333 y dile que llego a las 10:30", "611222333", "30"),
+    ("Envía un SMS al 611222333 y dile que llego a las 10:30", "611222333", "llego"),
+    ("Mensaje para ana@example.com - la reunión es a las 10:00", "ana@example.com", "00"),
+    ("Mensaje para ana@example.com - la reunión es a las 10:00", "ana@example.com", "la reunión"),
+    # The mock's 50-character prefix does not reach a late recipient.
+    ("Por favor, cuando puedas y sin falta alguna, avisa a ana@example.com de que mañana no hay clase",
+     "ana@example.com", "Por favor, cuando puedas y sin falta alguna, avisa"),
+    ("Avisa a ana@example.com de que mañana no hay clase", "ana@example.com", "mañana no"),
+])
+def test_fragment_is_never_sent_without_a_delimiter(source, recipient, fragment):
+    channel = "email" if "@" in recipient else "sms"
+    content = json.dumps({"to": recipient, "message": fragment, "type": channel}, ensure_ascii=False)
+    with pytest.raises(ExtractionError):
+        extract_notification(content, source)
+
+
+@pytest.mark.parametrize("source, recipient, model_message, expected", [
+    ("Mensaje para ana@example.com - la reunión es a las 10:00", "ana@example.com",
+     "la reunión es a las 10:00", "la reunión es a las 10:00"),
+    ("Avisa a ana@example.com de que mañana no hay clase", "ana@example.com",
+     "mañana no hay clase", "mañana no hay clase"),
+    ("Envía un SMS al 611222333 y dile que llego tarde", "611222333", "llego tarde", "llego tarde"),
+    ("Envía 'Hola, llego tarde' a ana@example.com", "ana@example.com", "Hola, llego tarde", "Hola, llego tarde"),
+    ("Recuerda a ana@example.com. Mañana no hay clase.", "ana@example.com",
+     "Mañana no hay clase", "Mañana no hay clase."),
+])
+def test_complete_tail_or_single_quoted_literal_is_sent(source, recipient, model_message, expected):
+    channel = "email" if "@" in recipient else "sms"
+    content = json.dumps({"to": recipient, "message": model_message, "type": channel}, ensure_ascii=False)
+    assert extract_notification(content, source).message == expected
+
+
+def test_quoted_literal_is_ambiguous_when_the_request_quotes_several():
+    source = "Envía a ana@example.com con asunto 'Factura' el texto 'Ya está pagada' por favor"
+    content = json.dumps({"to": "ana@example.com", "message": "Factura", "type": "email"})
+    with pytest.raises(ExtractionError, match="no delimiter"):
+        extract_notification(content, source)
+
+
+@pytest.mark.parametrize("source", [
+    "Escribe un email a ramon@example.org diciendo: Nos vemos el lunes a las 08:30.",
+    "Escribe un email a ramon@example.org diciendo que: Nos vemos el lunes a las 08:30.",
+    "Escribe un email a ramon@example.org, diciendo: Nos vemos el lunes a las 08:30.",
+    "Escribe un email a ramon@example.org el mensaje: Nos vemos el lunes a las 08:30.",
+    "Escribe un email a ramon@example.org con el texto: Nos vemos el lunes a las 08:30.",
+    "Send an email to ramon@example.org saying: Nos vemos el lunes a las 08:30.",
+    "Send an email to ramon@example.org with the message: Nos vemos el lunes a las 08:30.",
+])
+def test_connector_or_label_with_colon_is_a_delimiter(source):
+    body = "Nos vemos el lunes a las 08:30."
+    for model_message in (body, "nos vemos el lunes a las 08:30", "30."):  # full, lowercased, mock's split
+        content = json.dumps({"to": "ramon@example.org", "message": model_message, "type": "email"})
+        assert extract_notification(content, source).message == body
+    for fragment in ("Nos vemos", "el lunes a las 08", "lunes"):
+        content = json.dumps({"to": "ramon@example.org", "message": fragment, "type": "email"})
+        with pytest.raises(ExtractionError, match="complete explicit body"):
+            extract_notification(content, source)
+
+
+@pytest.mark.parametrize("model_message", ["llego tarde.", "diciendo que llego tarde.", "que llego tarde."])
+def test_connector_after_punctuation_is_a_delimiter(model_message):
+    source = "Envía un email a ana@example.com, diciendo que llego tarde."
+    content = json.dumps({"to": "ana@example.com", "message": model_message, "type": "email"})
+    assert extract_notification(content, source).message == "llego tarde."
+
+
+@pytest.mark.parametrize("source, model_to, expected_to", [
+    ("EMAIL a NORA@EXAMPLE.NET: Hola.", "nora@example.net", "NORA@EXAMPLE.NET"),
+    ("SMS al 600-111-222: Hola.", "600111222", "600-111-222"),
+])
+def test_recipient_is_sent_as_the_user_wrote_it(source, model_to, expected_to):
+    channel = "email" if "@" in model_to else "sms"
+    content = json.dumps({"to": model_to, "message": "Hola.", "type": channel})
+    assert extract_notification(content, source).to == expected_to

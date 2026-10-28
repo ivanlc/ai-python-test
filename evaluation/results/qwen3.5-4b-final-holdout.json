@@ -781,9 +781,9 @@
   },
   "finished_at": "2026-10-27T13:36:59.268131+00:00",
   "rescoring": {
-    "source_report": "evaluation/results/qwen3.5-4b-holdout.json",
-    "source_revision": "0c391baa8515f181d91c191efc0821f837587e14",
-    "guardrail_sha256": "b8d90f2c0b7597f4a5629d9bd29f4ae141fec3448b7cfffdabe2abc8668acf83",
-    "rescored_at": "2026-10-27T18:34:48.138911+00:00"
+    "source_report": "evaluation/results/qwen3.5-4b-final-holdout.json",
+    "source_revision": "7623d6aaa25199196c0e21c7666951b748f73ac8",
+    "guardrail_sha256": "7c41b44fed11e213848a6a43aac0dcc62e8a3cc136db3c7e36503e715be7fec4",
+    "rescored_at": "2026-10-28T08:13:08.482891+00:00"
   }
 }

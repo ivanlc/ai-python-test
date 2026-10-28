@@ -2230,9 +2230,9 @@
   "finished_at": "2026-10-27T17:58:09.162156+00:00",
   "rescoring": {
     "source_report": "evaluation/results/claude-haiku-5-5-reask-holdout2.json",
-    "source_revision": "0c391baa8515f181d91c191efc0821f837587e14",
-    "guardrail_sha256": "b8d90f2c0b7597f4a5629d9bd29f4ae141fec3448b7cfffdabe2abc8668acf83",
-    "rescored_at": "2026-10-27T18:34:49.376217+00:00"
+    "source_revision": "7623d6aaa25199196c0e21c7666951b748f73ac8",
+    "guardrail_sha256": "7c41b44fed11e213848a6a43aac0dcc62e8a3cc136db3c7e36503e715be7fec4",
+    "rescored_at": "2026-10-28T08:13:07.171733+00:00"
   },
   "reask_policy_note": "Generated while protocol refusals (REFUSED) were also re-asked; every such re-ask returned REFUSED again. The service now re-asks only unusable output (format errors), none of which occurred in this run."
 }

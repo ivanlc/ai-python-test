@@ -30,7 +30,16 @@ BODY_DESCRIPTION_RE = re.compile(
 BODY_INTRODUCER_RE = re.compile(
     r"\b(?:diciendo(?:\s+que)?|que\s+diga|saying|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
 BODY_CONNECTOR_RE = re.compile(
-    r"(?:diciendo(?:\s+que)?|que\s+diga|que|saying(?:\s+that)?|con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
+    r"(?:diciendo(?:\s+que)?|que\s+diga|(?:y\s+)?dile(?:\s+que)?|de\s+que|que|saying(?:\s+that)?|"
+    r"con\s+el\s+texto|with\s+the\s+message)\s+", re.I)
+# A connector or a body label followed by a colon ("diciendo:", "el mensaje:") delimits
+# the body exactly like a colon right after the recipient.
+BODY_LABEL_COLON_RE = re.compile(
+    r"(?:diciendo(?:\s+que)?|que\s+diga|(?:y\s+)?dile(?:\s+que)?|de\s+que|que|saying(?:\s+that)?|"
+    r"(?:con\s+)?el\s+(?:mensaje|texto)|"
+    r"(?:with\s+)?the\s+(?:message|text)|mensaje|texto|message|text)\s*:\s*", re.I)
+# Punctuation that may separate the recipient from a connector: ", diciendo que ...".
+CONNECTOR_LEAD_RE = re.compile(r"[,;\u2013\u2014-]\s*")
 
 def _email_key(address: str) -> Optional[str]:
     try:
@@ -54,9 +63,15 @@ def _split_explicit_body(user_input: str) -> Tuple[str, Optional[str], Optional[
         remainder = user_input[end:].lstrip()
         if remainder.startswith(":"):
             return user_input[:end], remainder[1:].strip(), None
-        connector = BODY_CONNECTOR_RE.match(remainder)
+        lead = CONNECTOR_LEAD_RE.match(remainder)
+        rest = remainder[lead.end():] if lead else remainder
+        label = BODY_LABEL_COLON_RE.match(rest)
+        if label:
+            # Colon-delimited: treated like a colon after the recipient.
+            return user_input[:end], rest[label.end():].strip(), None
+        connector = BODY_CONNECTOR_RE.match(rest)
         if connector:
-            return user_input[:end], remainder[connector.end():].strip(), connector.group().strip()
+            return user_input[:end], rest[connector.end():].strip(), connector.group().strip()
     return user_input, None, None
 
 
@@ -84,6 +99,17 @@ def _is_inner_colon_suffix(fragment: str, body: str) -> bool:
 
 
 QUOTE_PAIRS = {'"': '"', "'": "'", "\u00ab": "\u00bb", "\u201c": "\u201d"}
+
+
+QUOTED_RE = re.compile("|".join(f"{re.escape(o)}([^{re.escape(o)}{re.escape(c)}]+){re.escape(c)}"
+                                for o, c in QUOTE_PAIRS.items()))
+
+
+def _single_quoted_literal(user_input: str) -> Optional[str]:
+    """The quoted text, when the request quotes exactly one literal."""
+    literals = [next(group for group in match.groups() if group is not None)
+                for match in QUOTED_RE.finditer(user_input)]
+    return literals[0] if len(literals) == 1 else None
 
 
 def _is_unquoted_body(message: str, body: str) -> bool:
@@ -179,9 +205,12 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
     if recipient is None:
         # Recovery uses the sole address explicitly supplied by the user.
         recipient = next(iter((facts.emails or facts.phones).values()))
-    email = _email_key(recipient) in facts.emails
-    phone = bool(PHONE_RE.fullmatch(recipient)) and recipient.replace("-", "") in facts.phones
-    if not (email or phone):
+    email_key = _email_key(recipient)
+    if email_key is not None and email_key in facts.emails:
+        recipient = facts.emails[email_key]  # the user's exact spelling, not the model's casing
+    elif PHONE_RE.fullmatch(recipient) and recipient.replace("-", "") in facts.phones:
+        recipient = facts.phones[recipient.replace("-", "")]
+    else:
         raise ExtractionError("Recipient is invalid or absent from the request")
 
     message = fields.get("message", "")
@@ -210,12 +239,18 @@ def validate_notification(fields: Dict[str, str], user_input: str) -> Notificati
                       if not any(start < c_end and c_start < end for c_start, c_end in facts.contact_spans)]
         if not body_spans:
             raise ExtractionError("Message includes the command or recipient rather than only its body")
-        # Grounding is case-insensitive; send the user's original casing, and keep
-        # final sentence punctuation that a model dropped at the end of the request.
-        start, end = body_spans[0]
-        if re.fullmatch(r"[.!?\u2026]+", user_input[end:].rstrip()):
-            end = len(user_input.rstrip())
-        message = user_input[start:end]
+        # Without a delimiter the source cannot show where the body starts or ends,
+        # so any fragment would be grounded. Accept only the complete text after the
+        # recipient, or the single quoted literal of the request; anything else fails.
+        tail = user_input[max(end for _, end in facts.contact_spans):].strip().lstrip(".,;:\u2013\u2014-").strip()
+        literal = _single_quoted_literal(user_input)
+        candidate = message.strip().casefold()
+        if tail and candidate in (tail.casefold(), tail.rstrip(".!?\u2026").casefold()):
+            message = tail
+        elif literal is not None and candidate == literal.strip().casefold():
+            message = literal.strip()
+        else:
+            raise ExtractionError("Message is not the complete body and the request has no delimiter")
     if explicit_body is None and BODY_DESCRIPTION_RE.match(message):
         quoted = any(f"{opening}{message}{closing}" in user_input
                      for opening, closing in [('"', '"'), ("'", "'"), ("«", "»")])
